@@ -163,60 +163,65 @@ function clampNum(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 function resizeCropBox(handleId, start, dxPx, dyPx, natW, natH) {
-  const MIN_W = natW * 0.08;
-  const MAX_W = Math.min(natW, natH / CROP_RATIO);
-  const { x, y, w } = start;
-  const h = w * CROP_RATIO;
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  function finish(newW, newX, newY) {
-    newW = clampNum(newW, MIN_W, MAX_W);
-    const newH = newW * CROP_RATIO;
-    newX = clampNum(newX, 0, natW - newW);
-    newY = clampNum(newY, 0, natH - newH);
-    return { x: newX, y: newY, w: newW, h: newH };
-  }
+  const MIN = Math.min(natW, natH) * 0.05;
+  const { x, y, w, h } = start;
+  let nx = x, ny = y, nw = w, nh = h;
   switch (handleId) {
     case "tl": {
       const bx = x + w, by = y + h;
-      const nw = w - dxPx;
-      return finish(nw, bx - nw, by - nw * CROP_RATIO);
+      nw = w - dxPx;
+      nh = h - dyPx;
+      nx = bx - nw;
+      ny = by - nh;
+      break;
     }
     case "tr": {
       const by = y + h;
-      const nw = w + dxPx;
-      return finish(nw, x, by - nw * CROP_RATIO);
+      nw = w + dxPx;
+      nh = h - dyPx;
+      ny = by - nh;
+      break;
     }
     case "bl": {
       const bx = x + w;
-      const nw = w - dxPx;
-      return finish(nw, bx - nw, y);
+      nw = w - dxPx;
+      nh = h + dyPx;
+      nx = bx - nw;
+      break;
     }
     case "br": {
-      const nw = w + dxPx;
-      return finish(nw, x, y);
+      nw = w + dxPx;
+      nh = h + dyPx;
+      break;
     }
     case "top": {
       const by = y + h;
-      const nw = w - dyPx / CROP_RATIO;
-      return finish(nw, cx - nw / 2, by - nw * CROP_RATIO);
+      nh = h - dyPx;
+      ny = by - nh;
+      break;
     }
     case "bottom": {
-      const nw = w + dyPx / CROP_RATIO;
-      return finish(nw, cx - nw / 2, y);
+      nh = h + dyPx;
+      break;
     }
     case "left": {
       const bx = x + w;
-      const nw = w - dxPx;
-      return finish(nw, bx - nw, cy - nw * CROP_RATIO / 2);
+      nw = w - dxPx;
+      nx = bx - nw;
+      break;
     }
     case "right": {
-      const nw = w + dxPx;
-      return finish(nw, x, cy - nw * CROP_RATIO / 2);
+      nw = w + dxPx;
+      break;
     }
     default:
-      return { x, y, w, h };
+      break;
   }
+  nw = clampNum(nw, MIN, natW);
+  nh = clampNum(nh, MIN, natH);
+  nx = clampNum(nx, 0, natW - nw);
+  ny = clampNum(ny, 0, natH - nh);
+  return { x: nx, y: ny, w: nw, h: nh };
 }
 function CroppedImage({ src, crop, style, onError }) {
   const [nat, setNat] = useState(null);
@@ -226,12 +231,17 @@ function CroppedImage({ src, crop, style, onError }) {
   let imgStyle = { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" };
   if (nat) {
     const c = crop && crop.w ? crop : defaultCropFor(nat.w, nat.h);
+    const containerAspect = 63 / 88;
+    const cropAspect = c.w / c.h;
+    const r = cropAspect / containerAspect;
+    const cropWPct = Math.min(1, r) * 100;
+    const cropHPct = Math.min(1, 1 / r) * 100;
     imgStyle = {
       position: "absolute",
-      width: `${nat.w / c.w * 100}%`,
-      height: `${nat.h / c.h * 100}%`,
-      left: `${-(c.x / c.w) * 100}%`,
-      top: `${-(c.y / c.h) * 100}%`,
+      width: `${cropWPct * (nat.w / c.w)}%`,
+      height: `${cropHPct * (nat.h / c.h)}%`,
+      left: `${(100 - cropWPct) / 2 - c.x / c.w * cropWPct}%`,
+      top: `${(100 - cropHPct) / 2 - c.y / c.h * cropHPct}%`,
       maxWidth: "none"
     };
   }
@@ -396,8 +406,8 @@ function ImageCropper({ src, crop, onChange }) {
     const dyPx = (e.clientY - d.startClientY) / d.scale;
     if (d.mode === "pan") {
       const newX = clampNum(d.start.x + dxPx, 0, nat.w - d.start.w);
-      const newY = clampNum(d.start.y + dyPx, 0, nat.h - d.start.w * CROP_RATIO);
-      onChange({ x: newX, y: newY, w: d.start.w, h: d.start.w * CROP_RATIO });
+      const newY = clampNum(d.start.y + dyPx, 0, nat.h - d.start.h);
+      onChange({ x: newX, y: newY, w: d.start.w, h: d.start.h });
     } else {
       onChange(resizeCropBox(d.mode, d.start, dxPx, dyPx, nat.w, nat.h));
     }
@@ -410,7 +420,7 @@ function ImageCropper({ src, crop, onChange }) {
   function startDrag(mode, e, c2, scale2) {
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { mode, startClientX: e.clientX, startClientY: e.clientY, start: { x: c2.x, y: c2.y, w: c2.w }, scale: scale2 };
+    dragRef.current = { mode, startClientX: e.clientX, startClientY: e.clientY, start: { x: c2.x, y: c2.y, w: c2.w, h: c2.h }, scale: scale2 };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
   }
@@ -454,7 +464,7 @@ function ImageCropper({ src, crop, onChange }) {
         {
           key: h.id,
           onPointerDown: (e) => startDrag(h.id, e, c, scale),
-          style: { position: "absolute", background: "#fff", border: "2px solid #1A1410", borderRadius: 3, cursor: h.cursor, ...h.style }
+          style: { position: "absolute", background: "rgba(255,255,255,0.35)", border: "1.5px solid rgba(255,255,255,0.9)", borderRadius: 3, cursor: h.cursor, ...h.style }
         }
       ))
     )
