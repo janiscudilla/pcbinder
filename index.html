@@ -423,14 +423,14 @@ function ImageCropper({ src, crop, onChange }) {
   const box = { left: c.x * scale, top: c.y * scale, width: c.w * scale, height: c.h * scale };
   const overlay = "rgba(0,0,0,0.55)";
   const handleDefs = [
-    { id: "tl", style: { top: -5, left: -5 }, cursor: "nwse-resize" },
-    { id: "tr", style: { top: -5, right: -5 }, cursor: "nesw-resize" },
-    { id: "bl", style: { bottom: -5, left: -5 }, cursor: "nesw-resize" },
-    { id: "br", style: { bottom: -5, right: -5 }, cursor: "nwse-resize" },
-    { id: "top", style: { top: -5, left: "50%", transform: "translateX(-50%)" }, cursor: "ns-resize" },
-    { id: "bottom", style: { bottom: -5, left: "50%", transform: "translateX(-50%)" }, cursor: "ns-resize" },
-    { id: "left", style: { left: -5, top: "50%", transform: "translateY(-50%)" }, cursor: "ew-resize" },
-    { id: "right", style: { right: -5, top: "50%", transform: "translateY(-50%)" }, cursor: "ew-resize" }
+    { id: "tl", style: { top: -6, left: -6, width: 12, height: 12 }, cursor: "nwse-resize" },
+    { id: "tr", style: { top: -6, right: -6, width: 12, height: 12 }, cursor: "nesw-resize" },
+    { id: "bl", style: { bottom: -6, left: -6, width: 12, height: 12 }, cursor: "nesw-resize" },
+    { id: "br", style: { bottom: -6, right: -6, width: 12, height: 12 }, cursor: "nwse-resize" },
+    { id: "top", style: { top: -5, left: "50%", transform: "translateX(-50%)", width: 28, height: 8 }, cursor: "ns-resize" },
+    { id: "bottom", style: { bottom: -5, left: "50%", transform: "translateX(-50%)", width: 28, height: 8 }, cursor: "ns-resize" },
+    { id: "left", style: { left: -5, top: "50%", transform: "translateY(-50%)", width: 8, height: 28 }, cursor: "ew-resize" },
+    { id: "right", style: { right: -5, top: "50%", transform: "translateY(-50%)", width: 8, height: 28 }, cursor: "ew-resize" }
   ];
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
     "div",
@@ -454,11 +454,11 @@ function ImageCropper({ src, crop, onChange }) {
         {
           key: h.id,
           onPointerDown: (e) => startDrag(h.id, e, c, scale),
-          style: { position: "absolute", width: 10, height: 10, background: theme.accent, border: "2px solid #1A1410", borderRadius: 2, cursor: h.cursor, ...h.style }
+          style: { position: "absolute", background: "#fff", border: "2px solid #1A1410", borderRadius: 3, cursor: h.cursor, ...h.style }
         }
       ))
     )
-  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a handle to resize"));
+  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a handle to resize that side"));
 }
 function TagMultiSelect({ label, values, options, onChange, placeholder }) {
   const [text, setText] = useState("");
