@@ -531,8 +531,10 @@ function PhotocardTracker({ isOwner = true } = {}) {
   const [filterOwned, setFilterOwned] = useState("");
   const [filterGroup, setFilterGroup] = useState("");
   const [filterMember, setFilterMember] = useState("");
+  const [filterAlbum, setFilterAlbum] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterSource, setFilterSource] = useState("");
+  const [filterVersionTag, setFilterVersionTag] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterEra, setFilterEra] = useState("");
   const [sortBy, setSortBy] = useState("recent");
@@ -605,6 +607,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
   const groups = useMemo(() => [...new Set(cards.map((c) => c.group).filter(Boolean))].sort(), [cards]);
   const eras = useMemo(() => [...new Set(cards.filter((c) => !filterGroup || c.group === filterGroup).map((c) => c.era).filter(Boolean))].sort(), [cards, filterGroup]);
   const filterMembers = useMemo(() => [...new Set(cards.filter((c) => !filterGroup || c.group === filterGroup).map((c) => c.member).filter(Boolean))].sort(), [cards, filterGroup]);
+  const filterAlbums = useMemo(() => [...new Set(cards.filter((c) => !filterGroup || c.group === filterGroup).map((c) => c.album).filter(Boolean))].sort(), [cards, filterGroup]);
   const categories = useMemo(() => {
     const existing = new Set(cards.map((c) => c.category).filter(Boolean));
     DEFAULT_CATEGORIES.forEach((c) => existing.add(c));
@@ -639,9 +642,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
       if (filterOwned === "missing" && owned) return false;
       if (filterGroup && c.group !== filterGroup) return false;
       if (filterMember && c.member !== filterMember) return false;
+      if (filterAlbum && c.album !== filterAlbum) return false;
       if (filterEra && c.era !== filterEra) return false;
       if (filterCategory && c.category !== filterCategory) return false;
       if (filterSource && c.source !== filterSource) return false;
+      if (filterVersionTag && !toTags(c.versionDetail).includes(filterVersionTag)) return false;
       if (filterStatus && c.status !== filterStatus) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -673,9 +678,9 @@ function PhotocardTracker({ isOwner = true } = {}) {
         list = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     }
     return list;
-  }, [cards, filterOwned, filterGroup, filterMember, filterEra, filterCategory, filterSource, filterStatus, search, sortBy]);
+  }, [cards, filterOwned, filterGroup, filterMember, filterAlbum, filterEra, filterCategory, filterSource, filterVersionTag, filterStatus, search, sortBy]);
   const visible = filtered.slice(0, visibleCount);
-  const activeFilterCount = [filterGroup, filterMember, filterEra, filterCategory, filterSource, filterStatus].filter(Boolean).length;
+  const activeFilterCount = [filterGroup, filterMember, filterAlbum, filterEra, filterCategory, filterSource, filterVersionTag, filterStatus].filter(Boolean).length;
   const ownedCount = useMemo(() => cards.filter(isOwned).length, [cards]);
   function openAdd() {
     const defaultGroup = mostCommon(cards.map((c) => c.group));
@@ -793,9 +798,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
   function clearFilters() {
     setFilterGroup("");
     setFilterMember("");
+    setFilterAlbum("");
     setFilterEra("");
     setFilterCategory("");
     setFilterSource("");
+    setFilterVersionTag("");
     setFilterStatus("");
     setSearch("");
   }
@@ -845,11 +852,15 @@ function PhotocardTracker({ isOwner = true } = {}) {
     setFilterGroup(e.target.value);
     setFilterEra("");
     setFilterMember("");
+    setFilterAlbum("");
     setVisibleCount(60);
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All groups"), groups.map((g) => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, g))), /* @__PURE__ */ React.createElement("select", { value: filterMember, onChange: (e) => {
     setFilterMember(e.target.value);
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All members"), filterMembers.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, m))), /* @__PURE__ */ React.createElement("select", { value: filterEra, onChange: (e) => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All members"), filterMembers.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, m))), /* @__PURE__ */ React.createElement("select", { value: filterAlbum, onChange: (e) => {
+    setFilterAlbum(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All albums"), filterAlbums.map((a) => /* @__PURE__ */ React.createElement("option", { key: a, value: a }, a))), /* @__PURE__ */ React.createElement("select", { value: filterEra, onChange: (e) => {
     setFilterEra(e.target.value);
     setVisibleCount(60);
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All eras"), eras.map((e) => /* @__PURE__ */ React.createElement("option", { key: e, value: e }, e))), /* @__PURE__ */ React.createElement("select", { value: filterCategory, onChange: (e) => {
@@ -858,7 +869,10 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All events"), categories.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))), /* @__PURE__ */ React.createElement("select", { value: filterSource, onChange: (e) => {
     setFilterSource(e.target.value);
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All sources"), sourceOptions.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All sources"), sourceOptions.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))), /* @__PURE__ */ React.createElement("select", { value: filterVersionTag, onChange: (e) => {
+    setFilterVersionTag(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All versions/editions"), versionDetailOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => {
     setFilterStatus(e.target.value);
     setVisibleCount(60);
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All statuses"), STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value))), /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? "No photocards yet. Add your first one." : "Nothing matches these filters.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" } }, visible.map((card) => {
