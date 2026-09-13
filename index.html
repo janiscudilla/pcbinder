@@ -146,17 +146,106 @@ const emptyForm = {
   dateSold: "",
   notes: "",
   copies: [],
-  imageCrop: { objX: 50, objY: 50, zoom: 1 }
+  imageCrop: null
 };
 function toTags(v) {
   if (Array.isArray(v)) return v;
   if (v) return [v];
   return [];
 }
-function getCrop(card) {
-  if (card && card.imageCrop) return card.imageCrop;
-  if (card && typeof card.imageFocusY === "number") return { objX: 50, objY: card.imageFocusY, zoom: 1 };
-  return { objX: 50, objY: 50, zoom: 1 };
+const CROP_RATIO = 88 / 63;
+function defaultCropFor(natW, natH) {
+  const w = Math.min(natW, natH / CROP_RATIO);
+  const h = w * CROP_RATIO;
+  return { x: (natW - w) / 2, y: (natH - h) / 2, w, h };
+}
+function clampNum(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+function resizeCropBox(handleId, start, dxPx, dyPx, natW, natH) {
+  const MIN_W = natW * 0.08;
+  const MAX_W = Math.min(natW, natH / CROP_RATIO);
+  const { x, y, w } = start;
+  const h = w * CROP_RATIO;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  function finish(newW, newX, newY) {
+    newW = clampNum(newW, MIN_W, MAX_W);
+    const newH = newW * CROP_RATIO;
+    newX = clampNum(newX, 0, natW - newW);
+    newY = clampNum(newY, 0, natH - newH);
+    return { x: newX, y: newY, w: newW, h: newH };
+  }
+  switch (handleId) {
+    case "tl": {
+      const bx = x + w, by = y + h;
+      const nw = w - dxPx;
+      return finish(nw, bx - nw, by - nw * CROP_RATIO);
+    }
+    case "tr": {
+      const by = y + h;
+      const nw = w + dxPx;
+      return finish(nw, x, by - nw * CROP_RATIO);
+    }
+    case "bl": {
+      const bx = x + w;
+      const nw = w - dxPx;
+      return finish(nw, bx - nw, y);
+    }
+    case "br": {
+      const nw = w + dxPx;
+      return finish(nw, x, y);
+    }
+    case "top": {
+      const by = y + h;
+      const nw = w - dyPx / CROP_RATIO;
+      return finish(nw, cx - nw / 2, by - nw * CROP_RATIO);
+    }
+    case "bottom": {
+      const nw = w + dyPx / CROP_RATIO;
+      return finish(nw, cx - nw / 2, y);
+    }
+    case "left": {
+      const bx = x + w;
+      const nw = w - dxPx;
+      return finish(nw, bx - nw, cy - nw * CROP_RATIO / 2);
+    }
+    case "right": {
+      const nw = w + dxPx;
+      return finish(nw, x, cy - nw * CROP_RATIO / 2);
+    }
+    default:
+      return { x, y, w, h };
+  }
+}
+function CroppedImage({ src, crop, style, onError }) {
+  const [nat, setNat] = useState(null);
+  function handleLoad(e) {
+    setNat({ w: e.target.naturalWidth, h: e.target.naturalHeight });
+  }
+  let imgStyle = { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" };
+  if (nat) {
+    const c = crop && crop.w ? crop : defaultCropFor(nat.w, nat.h);
+    imgStyle = {
+      position: "absolute",
+      width: `${nat.w / c.w * 100}%`,
+      height: `${nat.h / c.h * 100}%`,
+      left: `${-(c.x / c.w) * 100}%`,
+      top: `${-(c.y / c.h) * 100}%`,
+      maxWidth: "none"
+    };
+  }
+  return /* @__PURE__ */ React.createElement(
+    "img",
+    {
+      src,
+      alt: "",
+      loading: "lazy",
+      onLoad: handleLoad,
+      onError,
+      style: { ...imgStyle, ...style }
+    }
+  );
 }
 function versionName(card) {
   return [card.source, ...toTags(card.versionDetail)].filter(Boolean).join(" ").trim();
@@ -291,31 +380,26 @@ function SelectOrNew({ label, value, options, onChange, placeholder }) {
   )), open && (filtered.length > 0 || query.trim()) && /* @__PURE__ */ React.createElement("div", { className: "absolute left-0 right-0 mt-1 rounded-lg overflow-y-auto pc-scroll z-20", style: { maxHeight: 180, background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, filtered.map((o) => /* @__PURE__ */ React.createElement("button", { key: o, type: "button", onClick: () => selectValue(o), className: "block w-full text-left px-3 py-2 text-sm", style: { borderBottom: `1px solid ${theme.border}` } }, o)), query.trim() && !exactMatch && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => selectValue(query.trim()), className: "block w-full text-left px-3 py-2 text-sm font-medium", style: { color: theme.accent } }, '+ Add "', query.trim(), '"')));
 }
 function ImageCropper({ src, crop, onChange }) {
-  var _a, _b, _c;
+  const [nat, setNat] = useState(null);
   const containerRef = useRef(null);
   const dragRef = useRef(null);
-  const objX = (_a = crop == null ? void 0 : crop.objX) != null ? _a : 50;
-  const objY = (_b = crop == null ? void 0 : crop.objY) != null ? _b : 50;
-  const zoom = (_c = crop == null ? void 0 : crop.zoom) != null ? _c : 1;
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
+  const DISPLAY_W = 260;
+  function handleImgLoad(e) {
+    const w = e.target.naturalWidth, h = e.target.naturalHeight;
+    setNat({ w, h });
+    if (!crop || !crop.w) onChange(defaultCropFor(w, h));
   }
   function handleMove(e) {
     const d = dragRef.current;
-    if (!d) return;
+    if (!d || !nat) return;
+    const dxPx = (e.clientX - d.startClientX) / d.scale;
+    const dyPx = (e.clientY - d.startClientY) / d.scale;
     if (d.mode === "pan") {
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
-      onChange({
-        objX: clamp(d.startObjX - dx / d.rectW * 100, 0, 100),
-        objY: clamp(d.startObjY - dy / d.rectH * 100, 0, 100),
-        zoom: d.startZoom
-      });
-    } else if (d.mode === "zoom") {
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
-      const projected = dx * d.dirX + dy * d.dirY;
-      onChange({ objX: d.startObjX, objY: d.startObjY, zoom: clamp(d.startZoom + projected / 80, 1, 3) });
+      const newX = clampNum(d.start.x + dxPx, 0, nat.w - d.start.w);
+      const newY = clampNum(d.start.y + dyPx, 0, nat.h - d.start.w * CROP_RATIO);
+      onChange({ x: newX, y: newY, w: d.start.w, h: d.start.w * CROP_RATIO });
+    } else {
+      onChange(resizeCropBox(d.mode, d.start, dxPx, dyPx, nat.w, nat.h));
     }
   }
   function handleUp() {
@@ -323,63 +407,58 @@ function ImageCropper({ src, crop, onChange }) {
     window.removeEventListener("pointermove", handleMove);
     window.removeEventListener("pointerup", handleUp);
   }
-  function startPan(e) {
-    e.preventDefault();
-    const rect = containerRef.current.getBoundingClientRect();
-    dragRef.current = { mode: "pan", startX: e.clientX, startY: e.clientY, startObjX: objX, startObjY: objY, startZoom: zoom, rectW: rect.width, rectH: rect.height };
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-  }
-  function startZoom(e, dirX, dirY) {
+  function startDrag(mode, e, c2, scale2) {
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { mode: "zoom", startX: e.clientX, startY: e.clientY, startObjX: objX, startObjY: objY, startZoom: zoom, dirX, dirY };
+    dragRef.current = { mode, startClientX: e.clientX, startClientY: e.clientY, start: { x: c2.x, y: c2.y, w: c2.w }, scale: scale2 };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
   }
-  const handles = [
-    { pos: { top: -5, left: -5 }, dir: [-1, -1], cursor: "nwse-resize" },
-    { pos: { top: -5, right: -5 }, dir: [1, -1], cursor: "nesw-resize" },
-    { pos: { bottom: -5, left: -5 }, dir: [-1, 1], cursor: "nesw-resize" },
-    { pos: { bottom: -5, right: -5 }, dir: [1, 1], cursor: "nwse-resize" },
-    { pos: { top: -5, left: "50%", transform: "translateX(-50%)" }, dir: [0, -1], cursor: "ns-resize" },
-    { pos: { bottom: -5, left: "50%", transform: "translateX(-50%)" }, dir: [0, 1], cursor: "ns-resize" },
-    { pos: { left: -5, top: "50%", transform: "translateY(-50%)" }, dir: [-1, 0], cursor: "ew-resize" },
-    { pos: { right: -5, top: "50%", transform: "translateY(-50%)" }, dir: [1, 0], cursor: "ew-resize" }
+  if (!nat) {
+    return /* @__PURE__ */ React.createElement("div", { style: { width: DISPLAY_W, maxWidth: "100%", margin: "0 auto" } }, /* @__PURE__ */ React.createElement("img", { src, alt: "", onLoad: handleImgLoad, style: { width: "100%", opacity: 0, display: "block" } }), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1", style: { color: theme.muted } }, "Loading image\u2026"));
+  }
+  const scale = DISPLAY_W / nat.w;
+  const displayH = nat.h * scale;
+  const c = crop && crop.w ? crop : defaultCropFor(nat.w, nat.h);
+  const box = { left: c.x * scale, top: c.y * scale, width: c.w * scale, height: c.h * scale };
+  const overlay = "rgba(0,0,0,0.55)";
+  const handleDefs = [
+    { id: "tl", style: { top: -5, left: -5 }, cursor: "nwse-resize" },
+    { id: "tr", style: { top: -5, right: -5 }, cursor: "nesw-resize" },
+    { id: "bl", style: { bottom: -5, left: -5 }, cursor: "nesw-resize" },
+    { id: "br", style: { bottom: -5, right: -5 }, cursor: "nwse-resize" },
+    { id: "top", style: { top: -5, left: "50%", transform: "translateX(-50%)" }, cursor: "ns-resize" },
+    { id: "bottom", style: { bottom: -5, left: "50%", transform: "translateX(-50%)" }, cursor: "ns-resize" },
+    { id: "left", style: { left: -5, top: "50%", transform: "translateY(-50%)" }, cursor: "ew-resize" },
+    { id: "right", style: { right: -5, top: "50%", transform: "translateY(-50%)" }, cursor: "ew-resize" }
   ];
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
     "div",
     {
       ref: containerRef,
-      onPointerDown: startPan,
-      style: { position: "relative", width: 160, maxWidth: "100%", aspectRatio: "63 / 88", margin: "0 auto", overflow: "visible", borderRadius: 8, background: theme.surfaceAlt, cursor: "grab", touchAction: "none" }
+      style: { position: "relative", width: DISPLAY_W, maxWidth: "100%", height: displayH, margin: "0 auto", borderRadius: 8, overflow: "hidden", touchAction: "none" }
     },
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, overflow: "hidden", borderRadius: 8 } }, /* @__PURE__ */ React.createElement(
-      "img",
-      {
-        src,
-        alt: "",
-        draggable: false,
-        style: {
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: `${objX}% ${objY}%`,
-          transform: `scale(${zoom})`,
-          transformOrigin: "center center",
-          pointerEvents: "none"
-        }
-      }
-    ), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, border: `2px dashed rgba(255,255,255,0.8)`, pointerEvents: "none" } })),
-    handles.map((h, i) => /* @__PURE__ */ React.createElement(
+    /* @__PURE__ */ React.createElement("img", { src, alt: "", draggable: false, style: { width: "100%", height: "100%", display: "block", userSelect: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: 0, right: 0, height: box.top, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: box.top + box.height, right: 0, bottom: 0, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: box.top, width: box.left, height: box.height, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: box.left + box.width, top: box.top, right: 0, height: box.height, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement(
       "div",
       {
-        key: i,
-        onPointerDown: (e) => startZoom(e, h.dir[0], h.dir[1]),
-        style: { position: "absolute", width: 10, height: 10, background: theme.accent, border: "2px solid #1A1410", borderRadius: 2, cursor: h.cursor, ...h.pos }
-      }
-    ))
-  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag inside to pan \xB7 drag a handle to zoom"));
+        onPointerDown: (e) => startDrag("pan", e, c, scale),
+        style: { position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height, border: "2px dashed rgba(255,255,255,0.9)", cursor: "grab" }
+      },
+      handleDefs.map((h) => /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: h.id,
+          onPointerDown: (e) => startDrag(h.id, e, c, scale),
+          style: { position: "absolute", width: 10, height: 10, background: theme.accent, border: "2px solid #1A1410", borderRadius: 2, cursor: h.cursor, ...h.style }
+        }
+      ))
+    )
+  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a handle to resize"));
 }
 function TagMultiSelect({ label, values, options, onChange, placeholder }) {
   const [text, setText] = useState("");
@@ -754,13 +833,10 @@ function PhotocardTracker({ isOwner = true } = {}) {
         style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` }
       },
       card.frontImage ? /* @__PURE__ */ React.createElement(
-        "img",
+        CroppedImage,
         {
           src: resolveImageUrl(card.frontImage),
-          alt: `${card.member || card.group} photocard`,
-          loading: "lazy",
-          className: "w-full h-full object-cover",
-          style: { objectPosition: `${getCrop(card).objX}% ${getCrop(card).objY}%`, transform: `scale(${getCrop(card).zoom})`, transformOrigin: "center center" },
+          crop: card.imageCrop,
           onError: (e) => {
             e.target.style.display = "none";
             if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
@@ -842,13 +918,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
   ), selectedCard && !modalMode && (() => {
     const badge = cardBadge(selectedCard);
     const spent = sumSpent(selectedCard);
-    return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4", style: { background: "rgba(0,0,0,0.6)" }, onClick: () => setSelectedCard(null) }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement("div", { style: { aspectRatio: "63 / 88", maxHeight: "55vh", margin: "0 auto", background: theme.surfaceAlt }, className: "overflow-hidden flex items-center justify-center" }, (detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage) ? /* @__PURE__ */ React.createElement(
-      "img",
+    return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4", style: { background: "rgba(0,0,0,0.6)" }, onClick: () => setSelectedCard(null) }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement("div", { style: { aspectRatio: "63 / 88", maxHeight: "55vh", margin: "0 auto", background: theme.surfaceAlt, position: "relative" }, className: "overflow-hidden flex items-center justify-center" }, (detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage) ? /* @__PURE__ */ React.createElement(
+      CroppedImage,
       {
         src: resolveImageUrl(detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage),
-        alt: "",
-        className: "w-full h-full object-cover",
-        style: { objectPosition: `${getCrop(selectedCard).objX}% ${getCrop(selectedCard).objY}%`, transform: `scale(${getCrop(selectedCard).zoom})`, transformOrigin: "center center" },
+        crop: selectedCard.imageCrop,
         onError: (e) => {
           e.target.style.display = "none";
         }
