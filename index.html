@@ -638,6 +638,9 @@ function PhotocardTracker({ isOwner = true } = {}) {
       case "member":
         list = [...list].sort((a, b) => (a.member || "").localeCompare(b.member));
         break;
+      case "version":
+        list = [...list].sort((a, b) => versionName(a).localeCompare(versionName(b)));
+        break;
       case "release":
         list = [...list].sort((a, b) => (b.releaseDate || "").localeCompare(a.releaseDate || ""));
         break;
@@ -797,7 +800,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
       placeholder: "Search group, member, album, era, seller, notes...",
       className: "w-full pl-9 pr-3 py-2.5 rounded-xl text-sm"
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [{ value: "", label: "Everything" }, { value: "owned", label: "Owned" }, { value: "missing", label: "Not owned" }].map((o) => /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [{ value: "", label: "Everything" }, { value: "owned", label: "My Collection" }, { value: "missing", label: "Not owned" }].map((o) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: o.value,
@@ -839,7 +842,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All sources"), sourceOptions.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => {
     setFilterStatus(e.target.value);
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All statuses"), STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value))), /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? "No photocards yet. Add your first one." : "Nothing matches these filters.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" } }, visible.map((card) => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All statuses"), STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value))), /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? "No photocards yet. Add your first one." : "Nothing matches these filters.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" } }, visible.map((card) => {
     const badge = cardBadge(card);
     const owned = isOwned(card);
     const copyCount = (card.copies || []).length;
