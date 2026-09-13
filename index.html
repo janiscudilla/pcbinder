@@ -17,7 +17,7 @@
 <body>
 <div id="root"></div>
 <script>
-const { useState, useEffect, useMemo, useCallback } = React;
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 const firebaseConfig = {
   apiKey: "AIzaSyC19F2ZKmvCbvK8sGFt6q-QqpRl4JqbDQs",
   authDomain: "photocard-binder.firebaseapp.com",
@@ -113,6 +113,7 @@ const HARDCODED_SOURCES = [
 const OWNED_COLOR = "#7FA687";
 const SOLD_COLOR = "#6B6470";
 const STATUSES = [
+  { value: "Unowned", color: "#5B6472" },
   { value: "Wishlist", color: "#8B8FC9" },
   { value: "OTW", color: "#E3A34A" },
   { value: "WTB", color: "#6E9FA0" },
@@ -139,18 +140,23 @@ const emptyForm = {
   releaseDate: "",
   source: "",
   versionDetail: [],
-  status: "Wishlist",
+  status: "Unowned",
   frontImage: "",
   backImage: "",
   dateSold: "",
   notes: "",
   copies: [],
-  imageFocusY: 50
+  imageCrop: { objX: 50, objY: 50, zoom: 1 }
 };
 function toTags(v) {
   if (Array.isArray(v)) return v;
   if (v) return [v];
   return [];
+}
+function getCrop(card) {
+  if (card && card.imageCrop) return card.imageCrop;
+  if (card && typeof card.imageFocusY === "number") return { objX: 50, objY: card.imageFocusY, zoom: 1 };
+  return { objX: 50, objY: 50, zoom: 1 };
 }
 function versionName(card) {
   return [card.source, ...toTags(card.versionDetail)].filter(Boolean).join(" ").trim();
@@ -223,8 +229,9 @@ function isOwned(card) {
   return card.status === "Owned";
 }
 function cardBadge(card) {
+  if (!card.status || card.status === "Unowned") return null;
   const s = STATUSES.find((s2) => s2.value === card.status);
-  return { label: card.status || "Wishlist", color: s ? s.color : theme.muted };
+  return { label: card.status, color: s ? s.color : theme.muted };
 }
 function Field({ label, children }) {
   return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), children);
@@ -248,26 +255,123 @@ function ImageField({ label, value, onChange }) {
   return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), isUpload ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 p-1.5 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("img", { src: value, alt: "", className: "w-10 h-14 object-cover rounded shrink-0" }), /* @__PURE__ */ React.createElement("span", { className: "text-xs flex-1", style: { color: theme.muted } }, "Photo uploaded (test only)"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => onChange(""), className: "text-xs px-2 py-1 rounded shrink-0", style: { color: "#D98B72" } }, "Remove")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement("input", { value, onChange: (e) => onChange(e.target.value), placeholder: "Paste a link (Drive, Pinterest, Canva)", className: "w-full px-2.5 py-2 rounded-lg text-sm" }), /* @__PURE__ */ React.createElement("label", { className: "inline-flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.accent } }, /* @__PURE__ */ React.createElement(Upload, { size: 12 }), " ", busy ? "Processing photo..." : "or upload a photo", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: handleFile, className: "hidden" }))));
 }
 function SelectOrNew({ label, value, options, onChange, placeholder }) {
-  const [adding, setAdding] = useState(!value || !options.includes(value));
-  if (adding) {
-    return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1.5" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value, onChange: (e) => onChange(e.target.value), placeholder, className: "w-full px-2.5 py-2 rounded-lg text-sm" }), options.length > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setAdding(false), className: "px-2.5 rounded-lg text-xs shrink-0", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "List")));
+  const [query, setQuery] = useState(value || "");
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useEffect(() => {
+    setQuery(value || "");
+  }, [value]);
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const filtered = options.filter((o) => o.toLowerCase().includes(query.toLowerCase()));
+  const exactMatch = options.some((o) => o.toLowerCase() === query.trim().toLowerCase());
+  function selectValue(v) {
+    onChange(v);
+    setQuery(v);
+    setOpen(false);
   }
-  return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement(
-    "select",
+  return /* @__PURE__ */ React.createElement("div", { ref: wrapRef, style: { position: "relative" } }, /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement(
+    "input",
     {
-      value,
+      value: query,
       onChange: (e) => {
-        if (e.target.value === "__new__") {
-          setAdding(true);
-          onChange("");
-        } else onChange(e.target.value);
+        setQuery(e.target.value);
+        onChange(e.target.value);
+        setOpen(true);
       },
+      onFocus: () => setOpen(true),
+      placeholder,
       className: "w-full px-2.5 py-2 rounded-lg text-sm"
+    }
+  )), open && (filtered.length > 0 || query.trim()) && /* @__PURE__ */ React.createElement("div", { className: "absolute left-0 right-0 mt-1 rounded-lg overflow-y-auto pc-scroll z-20", style: { maxHeight: 180, background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, filtered.map((o) => /* @__PURE__ */ React.createElement("button", { key: o, type: "button", onClick: () => selectValue(o), className: "block w-full text-left px-3 py-2 text-sm", style: { borderBottom: `1px solid ${theme.border}` } }, o)), query.trim() && !exactMatch && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => selectValue(query.trim()), className: "block w-full text-left px-3 py-2 text-sm font-medium", style: { color: theme.accent } }, '+ Add "', query.trim(), '"')));
+}
+function ImageCropper({ src, crop, onChange }) {
+  var _a, _b, _c;
+  const containerRef = useRef(null);
+  const dragRef = useRef(null);
+  const objX = (_a = crop == null ? void 0 : crop.objX) != null ? _a : 50;
+  const objY = (_b = crop == null ? void 0 : crop.objY) != null ? _b : 50;
+  const zoom = (_c = crop == null ? void 0 : crop.zoom) != null ? _c : 1;
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+  function handleMove(e) {
+    const d = dragRef.current;
+    if (!d) return;
+    if (d.mode === "pan") {
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      onChange({
+        objX: clamp(d.startObjX - dx / d.rectW * 100, 0, 100),
+        objY: clamp(d.startObjY - dy / d.rectH * 100, 0, 100),
+        zoom: d.startZoom
+      });
+    } else if (d.mode === "zoom") {
+      const dx = e.clientX - d.startX;
+      onChange({ objX: d.startObjX, objY: d.startObjY, zoom: clamp(d.startZoom + dx / 80, 1, 3) });
+    }
+  }
+  function handleUp() {
+    dragRef.current = null;
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleUp);
+  }
+  function startPan(e) {
+    e.preventDefault();
+    const rect = containerRef.current.getBoundingClientRect();
+    dragRef.current = { mode: "pan", startX: e.clientX, startY: e.clientY, startObjX: objX, startObjY: objY, startZoom: zoom, rectW: rect.width, rectH: rect.height };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }
+  function startZoom(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { mode: "zoom", startX: e.clientX, startY: e.clientY, startObjX: objX, startObjY: objY, startZoom: zoom };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }
+  const dotStyle = { position: "absolute", width: 8, height: 8, background: "#fff", border: "1px solid #1A1410", borderRadius: 2, pointerEvents: "none" };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      ref: containerRef,
+      onPointerDown: startPan,
+      style: { position: "relative", width: 160, maxWidth: "100%", aspectRatio: "63 / 88", margin: "0 auto", overflow: "hidden", borderRadius: 8, background: theme.surfaceAlt, cursor: "grab", touchAction: "none" }
     },
-    /* @__PURE__ */ React.createElement("option", { value: "" }, "Select..."),
-    options.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o)),
-    /* @__PURE__ */ React.createElement("option", { value: "__new__" }, "+ Add new")
-  ));
+    /* @__PURE__ */ React.createElement(
+      "img",
+      {
+        src,
+        alt: "",
+        draggable: false,
+        style: {
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: `${objX}% ${objY}%`,
+          transform: `scale(${zoom})`,
+          transformOrigin: "center center",
+          pointerEvents: "none"
+        }
+      }
+    ),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, border: `2px dashed rgba(255,255,255,0.8)`, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { ...dotStyle, top: -4, left: -4 } }),
+    /* @__PURE__ */ React.createElement("div", { style: { ...dotStyle, top: -4, right: -4 } }),
+    /* @__PURE__ */ React.createElement("div", { style: { ...dotStyle, bottom: -4, left: -4 } }),
+    /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        onPointerDown: startZoom,
+        style: { position: "absolute", width: 16, height: 16, background: theme.accent, border: "2px solid #1A1410", borderRadius: 3, right: -6, bottom: -6, cursor: "nwse-resize" }
+      }
+    )
+  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag to pan \xB7 drag the gold corner to zoom"));
 }
 function TagMultiSelect({ label, values, options, onChange, placeholder }) {
   const [text, setText] = useState("");
@@ -620,7 +724,6 @@ function PhotocardTracker({ isOwner = true } = {}) {
     setFilterStatus(e.target.value);
     setVisibleCount(60);
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All statuses"), STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value))), /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? "No photocards yet. Add your first one." : "Nothing matches these filters.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" } }, visible.map((card) => {
-    var _a;
     const badge = cardBadge(card);
     const owned = isOwned(card);
     const copyCount = (card.copies || []).length;
@@ -649,7 +752,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
           alt: `${card.member || card.group} photocard`,
           loading: "lazy",
           className: "w-full h-full object-cover",
-          style: { objectPosition: `50% ${(_a = card.imageFocusY) != null ? _a : 50}%` },
+          style: { objectPosition: `${getCrop(card).objX}% ${getCrop(card).objY}%`, transform: `scale(${getCrop(card).zoom})`, transformOrigin: "center center" },
           onError: (e) => {
             e.target.style.display = "none";
             if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
@@ -657,7 +760,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
         }
       ) : null,
       /* @__PURE__ */ React.createElement("div", { className: "w-full h-full items-center justify-center flex-col gap-1", style: { display: card.frontImage ? "none" : "flex", color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 20 }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px]" }, "No image")),
-      isOwner ? /* @__PURE__ */ React.createElement(
+      badge && (isOwner ? /* @__PURE__ */ React.createElement(
         "button",
         {
           onClick: (e) => {
@@ -675,7 +778,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
           style: { background: badge.color, color: "#1A1410" }
         },
         badge.label
-      ),
+      )),
       isOwner && /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -710,29 +813,25 @@ function PhotocardTracker({ isOwner = true } = {}) {
         }
       },
       /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React.createElement("h2", { className: "pc-font-display text-lg", style: { fontWeight: 600 } }, editingId ? "Edit photocard" : "Add photocard"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: closeModal }, /* @__PURE__ */ React.createElement(X, { size: 18 }))),
-      /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Group *", value: form.group, options: groups, placeholder: "New group name", onChange: (v) => setForm((f) => ({ ...f, group: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Member", value: form.member, options: members, placeholder: "New member name", onChange: (v) => setForm((f) => ({ ...f, member: v })) })), /* @__PURE__ */ React.createElement(ImageField, { label: "Front image", value: form.frontImage, onChange: (v) => setForm((f) => ({ ...f, frontImage: v })) }), /* @__PURE__ */ React.createElement(ImageField, { label: "Back image (optional)", value: form.backImage, onChange: (v) => setForm((f) => ({ ...f, backImage: v })) }), form.frontImage && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, "Crop focus \u2014 drag to frame the face"), /* @__PURE__ */ React.createElement("div", { className: "flex gap-3 items-center" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-lg overflow-hidden shrink-0", style: { width: 64, aspectRatio: "63 / 88", background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(
-        "img",
+      /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Group *", value: form.group, options: groups, placeholder: "New group name", onChange: (v) => setForm((f) => ({ ...f, group: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Member", value: form.member, options: members, placeholder: "New member name", onChange: (v) => setForm((f) => ({ ...f, member: v })) })), /* @__PURE__ */ React.createElement(ImageField, { label: "Front image", value: form.frontImage, onChange: (v) => setForm((f) => ({ ...f, frontImage: v })) }), /* @__PURE__ */ React.createElement(ImageField, { label: "Back image (optional)", value: form.backImage, onChange: (v) => setForm((f) => ({ ...f, backImage: v })) }), form.frontImage && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, "Crop"), /* @__PURE__ */ React.createElement(
+        ImageCropper,
         {
           src: resolveImageUrl(form.frontImage),
-          alt: "",
-          className: "w-full h-full object-cover",
-          style: { objectPosition: `50% ${form.imageFocusY}%` }
+          crop: form.imageCrop,
+          onChange: (c) => setForm((f) => ({ ...f, imageCrop: c }))
         }
-      )), /* @__PURE__ */ React.createElement(
+      )), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Album", value: form.album, options: formAlbums, placeholder: "New album name", onChange: handleAlbumChange }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Era (auto-fills)", value: form.era, options: formEras, placeholder: "Era name", onChange: (v) => setForm((f) => ({ ...f, era: v })) })), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Source", value: form.source, options: sourceOptions, placeholder: "New source name", onChange: (v) => setForm((f) => ({ ...f, source: v })) }), /* @__PURE__ */ React.createElement(TagMultiSelect, { label: "Version / edition", values: toTags(form.versionDetail), options: versionDetailOptions, onChange: (v) => setForm((f) => ({ ...f, versionDetail: v })), placeholder: "e.g. Lucky Draw, 3.0, Exclusive" }), (form.source || toTags(form.versionDetail).length > 0) && /* @__PURE__ */ React.createElement("p", { className: "text-xs -mt-1.5", style: { color: theme.muted } }, "\u2192 ", versionName(form) || "\u2014"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Type", value: form.category, options: categories, placeholder: "New type (e.g. Fansign)", onChange: (v) => setForm((f) => ({ ...f, category: v })) }), /* @__PURE__ */ React.createElement(Field, { label: "Date released" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.releaseDate, onChange: (e) => setForm((f) => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }))), /* @__PURE__ */ React.createElement(Field, { label: "Status" }, /* @__PURE__ */ React.createElement("select", { value: form.status, onChange: (e) => setForm((f) => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }, STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value)))), /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-2 text-sm cursor-pointer" }, /* @__PURE__ */ React.createElement(
         "input",
         {
-          type: "range",
-          min: "0",
-          max: "100",
-          value: form.imageFocusY,
-          onChange: (e) => setForm((f) => ({ ...f, imageFocusY: Number(e.target.value) })),
-          className: "flex-1"
+          type: "checkbox",
+          checked: form.status === "Wishlist",
+          onChange: (e) => setForm((f) => ({ ...f, status: e.target.checked ? "Wishlist" : "Unowned" })),
+          className: "w-4 h-4"
         }
-      ))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Album", value: form.album, options: formAlbums, placeholder: "New album name", onChange: handleAlbumChange }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Era (auto-fills)", value: form.era, options: formEras, placeholder: "Era name", onChange: (v) => setForm((f) => ({ ...f, era: v })) })), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Source", value: form.source, options: sourceOptions, placeholder: "New source name", onChange: (v) => setForm((f) => ({ ...f, source: v })) }), /* @__PURE__ */ React.createElement(TagMultiSelect, { label: "Version / edition", values: toTags(form.versionDetail), options: versionDetailOptions, onChange: (v) => setForm((f) => ({ ...f, versionDetail: v })), placeholder: "e.g. Lucky Draw, 3.0, Exclusive" }), (form.source || toTags(form.versionDetail).length > 0) && /* @__PURE__ */ React.createElement("p", { className: "text-xs -mt-1.5", style: { color: theme.muted } }, "\u2192 ", versionName(form) || "\u2014"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Type", value: form.category, options: categories, placeholder: "New type (e.g. Fansign)", onChange: (v) => setForm((f) => ({ ...f, category: v })) }), /* @__PURE__ */ React.createElement(Field, { label: "Date released" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.releaseDate, onChange: (e) => setForm((f) => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }))), /* @__PURE__ */ React.createElement(Field, { label: "Status" }, /* @__PURE__ */ React.createElement("select", { value: form.status, onChange: (e) => setForm((f) => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }, STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, form.copies.length === 0 ? "Not in your collection yet" : `${form.copies.length} cop${form.copies.length === 1 ? "y" : "ies"} owned`), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, form.copies.map((copy, idx) => /* @__PURE__ */ React.createElement("div", { key: copy.id, className: "flex gap-1.5 items-start p-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 grid grid-cols-3 gap-1.5" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: copy.date, onChange: (e) => updateCopy(idx, "date", e.target.value), className: "px-2 py-1.5 rounded text-xs" }), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Price", value: copy.price, onChange: (e) => updateCopy(idx, "price", e.target.value), className: "px-2 py-1.5 rounded text-xs" }), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Seller", value: copy.seller, onChange: (e) => updateCopy(idx, "seller", e.target.value), className: "px-2 py-1.5 rounded text-xs" })), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => removeCopy(idx), className: "p-1.5 shrink-0", style: { color: "#D98B72" } }, /* @__PURE__ */ React.createElement(X, { size: 14 }))))), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: addCopy, className: "mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium", style: { background: theme.accent, color: "#1A1410" } }, /* @__PURE__ */ React.createElement(Plus, { size: 12 }), " ", form.copies.length === 0 ? "Add to my collection" : "Add another copy")), /* @__PURE__ */ React.createElement(Field, { label: "Date sold (optional)" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.dateSold, onChange: (e) => setForm((f) => ({ ...f, dateSold: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })), /* @__PURE__ */ React.createElement(Field, { label: "Notes" }, /* @__PURE__ */ React.createElement("textarea", { value: form.notes, onChange: (e) => setForm((f) => ({ ...f, notes: e.target.value })), rows: 2, className: "w-full px-2.5 py-2 rounded-lg text-sm resize-none" }))),
+      ), "Add to my Wishlist"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, form.copies.length === 0 ? "Not in your collection yet" : `${form.copies.length} cop${form.copies.length === 1 ? "y" : "ies"} owned`), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, form.copies.map((copy, idx) => /* @__PURE__ */ React.createElement("div", { key: copy.id, className: "flex gap-1.5 items-start p-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 grid grid-cols-3 gap-1.5" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: copy.date, onChange: (e) => updateCopy(idx, "date", e.target.value), className: "px-2 py-1.5 rounded text-xs" }), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Price", value: copy.price, onChange: (e) => updateCopy(idx, "price", e.target.value), className: "px-2 py-1.5 rounded text-xs" }), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Seller", value: copy.seller, onChange: (e) => updateCopy(idx, "seller", e.target.value), className: "px-2 py-1.5 rounded text-xs" })), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => removeCopy(idx), className: "p-1.5 shrink-0", style: { color: "#D98B72" } }, /* @__PURE__ */ React.createElement(X, { size: 14 }))))), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: addCopy, className: "mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium", style: { background: theme.accent, color: "#1A1410" } }, /* @__PURE__ */ React.createElement(Plus, { size: 12 }), " ", form.copies.length === 0 ? "Add to my collection" : "Add another copy")), /* @__PURE__ */ React.createElement(Field, { label: "Date sold (optional)" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.dateSold, onChange: (e) => setForm((f) => ({ ...f, dateSold: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })), /* @__PURE__ */ React.createElement(Field, { label: "Notes" }, /* @__PURE__ */ React.createElement("textarea", { value: form.notes, onChange: (e) => setForm((f) => ({ ...f, notes: e.target.value })), rows: 2, className: "w-full px-2.5 py-2 rounded-lg text-sm resize-none" }))),
       /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 mt-5" }, editingId && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => deleteCard(editingId), className: "px-3 py-2 rounded-full text-sm flex items-center gap-1", style: { color: "#D98B72" } }, /* @__PURE__ */ React.createElement(Trash2, { size: 14 }), " Delete"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: saveForm, className: "flex-1 py-2 rounded-full text-sm font-medium", style: { background: theme.accent, color: "#1A1410" } }, editingId ? "Save changes" : "Add to collection"))
     )
   ), selectedCard && !modalMode && (() => {
-    var _a;
     const badge = cardBadge(selectedCard);
     const spent = sumSpent(selectedCard);
     return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4", style: { background: "rgba(0,0,0,0.6)" }, onClick: () => setSelectedCard(null) }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement("div", { style: { aspectRatio: "63 / 88", maxHeight: "55vh", margin: "0 auto", background: theme.surfaceAlt }, className: "overflow-hidden flex items-center justify-center" }, (detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage) ? /* @__PURE__ */ React.createElement(
@@ -741,12 +840,12 @@ function PhotocardTracker({ isOwner = true } = {}) {
         src: resolveImageUrl(detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage),
         alt: "",
         className: "w-full h-full object-cover",
-        style: { objectPosition: `50% ${(_a = selectedCard.imageFocusY) != null ? _a : 50}%` },
+        style: { objectPosition: `${getCrop(selectedCard).objX}% ${getCrop(selectedCard).objY}%`, transform: `scale(${getCrop(selectedCard).zoom})`, transformOrigin: "center center" },
         onError: (e) => {
           e.target.style.display = "none";
         }
       }
-    ) : /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center gap-1", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 28 }), /* @__PURE__ */ React.createElement("span", { className: "text-xs" }, "No ", detailSide, " image"))), /* @__PURE__ */ React.createElement("button", { onClick: () => setSelectedCard(null), className: "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center", style: { background: "rgba(0,0,0,0.5)" } }, /* @__PURE__ */ React.createElement(X, { size: 16, color: "#fff" })), selectedCard.backImage && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 left-1/2 -translate-x-1/2 flex rounded-full overflow-hidden text-xs", style: { border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setDetailSide("front"), className: "px-3 py-1", style: { background: detailSide === "front" ? theme.accent : theme.surfaceAlt, color: detailSide === "front" ? "#1A1410" : theme.text } }, "Front"), /* @__PURE__ */ React.createElement("button", { onClick: () => setDetailSide("back"), className: "px-3 py-1", style: { background: detailSide === "back" ? theme.accent : theme.surfaceAlt, color: detailSide === "back" ? "#1A1410" : theme.text } }, "Back"))), /* @__PURE__ */ React.createElement("div", { className: "p-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between mb-1 gap-2" }, /* @__PURE__ */ React.createElement("h2", { className: "pc-font-display text-xl", style: { fontWeight: 600 } }, selectedCard.member || selectedCard.group), /* @__PURE__ */ React.createElement("span", { className: "px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 mt-1", style: { background: badge.color, color: "#1A1410" } }, badge.label)), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.group, selectedCard.album ? ` \xB7 ${selectedCard.album}` : "", selectedCard.era ? ` \xB7 ${selectedCard.era}` : "", selectedCard.category ? ` \xB7 ${selectedCard.category}` : ""), versionName(selectedCard) && /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-2 font-medium" }, versionName(selectedCard)), /* @__PURE__ */ React.createElement("dl", { className: "grid grid-cols-2 gap-y-2 text-sm mb-4" }, /* @__PURE__ */ React.createElement(DetailRow, { label: "Released", value: selectedCard.releaseDate }), /* @__PURE__ */ React.createElement(DetailRow, { label: "Sold", value: selectedCard.dateSold }), /* @__PURE__ */ React.createElement(DetailRow, { label: "Total spent", value: spent ? spent.toFixed(2) : "" })), (selectedCard.copies || []).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Copies owned"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, selectedCard.copies.map((c, i) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "text-sm px-2.5 py-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", { className: "font-medium" }, "Copy ", i + 1), " \u2014 ", c.date || "no date", c.price ? ` \xB7 ${c.price}` : "", c.seller ? ` \xB7 ${c.seller}` : "")))), selectedCard.notes && /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.notes), isOwner && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement("button", { onClick: () => openEdit(selectedCard), className: "flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1.5", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Pencil, { size: 14 }), " Edit"), /* @__PURE__ */ React.createElement("button", { onClick: () => deleteCard(selectedCard.id), className: "py-2 px-4 rounded-full text-sm flex items-center gap-1.5", style: { color: "#D98B72", border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Trash2, { size: 14 }), " Delete")))));
+    ) : /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center gap-1", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 28 }), /* @__PURE__ */ React.createElement("span", { className: "text-xs" }, "No ", detailSide, " image"))), /* @__PURE__ */ React.createElement("button", { onClick: () => setSelectedCard(null), className: "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center", style: { background: "rgba(0,0,0,0.5)" } }, /* @__PURE__ */ React.createElement(X, { size: 16, color: "#fff" })), selectedCard.backImage && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 left-1/2 -translate-x-1/2 flex rounded-full overflow-hidden text-xs", style: { border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setDetailSide("front"), className: "px-3 py-1", style: { background: detailSide === "front" ? theme.accent : theme.surfaceAlt, color: detailSide === "front" ? "#1A1410" : theme.text } }, "Front"), /* @__PURE__ */ React.createElement("button", { onClick: () => setDetailSide("back"), className: "px-3 py-1", style: { background: detailSide === "back" ? theme.accent : theme.surfaceAlt, color: detailSide === "back" ? "#1A1410" : theme.text } }, "Back"))), /* @__PURE__ */ React.createElement("div", { className: "p-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between mb-1 gap-2" }, /* @__PURE__ */ React.createElement("h2", { className: "pc-font-display text-xl", style: { fontWeight: 600 } }, selectedCard.member || selectedCard.group), badge && /* @__PURE__ */ React.createElement("span", { className: "px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 mt-1", style: { background: badge.color, color: "#1A1410" } }, badge.label)), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.group, selectedCard.album ? ` \xB7 ${selectedCard.album}` : "", selectedCard.era ? ` \xB7 ${selectedCard.era}` : "", selectedCard.category ? ` \xB7 ${selectedCard.category}` : ""), versionName(selectedCard) && /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-2 font-medium" }, versionName(selectedCard)), /* @__PURE__ */ React.createElement("dl", { className: "grid grid-cols-2 gap-y-2 text-sm mb-4" }, /* @__PURE__ */ React.createElement(DetailRow, { label: "Released", value: selectedCard.releaseDate }), /* @__PURE__ */ React.createElement(DetailRow, { label: "Sold", value: selectedCard.dateSold }), /* @__PURE__ */ React.createElement(DetailRow, { label: "Total spent", value: spent ? spent.toFixed(2) : "" })), (selectedCard.copies || []).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Copies owned"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, selectedCard.copies.map((c, i) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "text-sm px-2.5 py-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", { className: "font-medium" }, "Copy ", i + 1), " \u2014 ", c.date || "no date", c.price ? ` \xB7 ${c.price}` : "", c.seller ? ` \xB7 ${c.seller}` : "")))), selectedCard.notes && /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.notes), isOwner && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement("button", { onClick: () => openEdit(selectedCard), className: "flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1.5", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Pencil, { size: 14 }), " Edit"), /* @__PURE__ */ React.createElement("button", { onClick: () => deleteCard(selectedCard.id), className: "py-2 px-4 rounded-full text-sm flex items-center gap-1.5", style: { color: "#D98B72", border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Trash2, { size: 14 }), " Delete")))));
   })(), toast && /* @__PURE__ */ React.createElement("div", { className: "fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm z-50 text-center", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}`, maxWidth: "90vw" } }, toast));
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
