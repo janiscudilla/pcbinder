@@ -6,7 +6,6 @@
 <title>Photocard Binder</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   html, body, #root { height: 100%; margin: 0; background: #17121A; }
@@ -14,89 +13,116 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
+<script>
 const { useState, useEffect, useMemo, useCallback } = React;
-
-// ---- Local storage-backed replacement for Claude's window.storage API ----
-// (this app is running standalone, outside Claude, so data is saved in this
-// browser's localStorage instead of Claude's per-account storage)
 const storage = {
   async get(key) {
     const v = localStorage.getItem(key);
-    if (v === null) throw new Error('not found');
+    if (v === null) throw new Error("not found");
     return { key, value: v };
   },
   async set(key, value) {
     localStorage.setItem(key, value);
     return { key, value };
-  },
+  }
 };
-
-// ---- Small inline icon set (replaces the lucide-react import, which needs a bundler) ----
 function Icon({ children, size = 16, ...props }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle' }} {...props}>
-      {children}
-    </svg>
+  return /* @__PURE__ */ React.createElement(
+    "svg",
+    {
+      width: size,
+      height: size,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      style: { display: "inline-block", verticalAlign: "middle" },
+      ...props
+    },
+    children
   );
 }
-const Search = (p) => <Icon {...p}><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></Icon>;
-const Plus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>;
-const X = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>;
-const Pencil = (p) => <Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></Icon>;
-const Trash2 = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></Icon>;
-const ImageIcon = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="M21 15l-5-5L5 21" /></Icon>;
-const Download = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></Icon>;
-const Upload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></Icon>;
-const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>;
-const RotateCcw = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></Icon>;
-
-
-const STORAGE_KEY = 'photocards-v2';
-
-const DEFAULT_CATEGORIES = ['Regular', 'POB', 'Merch', 'Broadcast', 'Fansign', "Season's Greetings", 'Membership'];
+const Search = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("line", { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }));
+const Plus = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "5", x2: "12", y2: "19" }), /* @__PURE__ */ React.createElement("line", { x1: "5", y1: "12", x2: "19", y2: "12" }));
+const X = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("line", { x1: "18", y1: "6", x2: "6", y2: "18" }), /* @__PURE__ */ React.createElement("line", { x1: "6", y1: "6", x2: "18", y2: "18" }));
+const Pencil = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" }));
+const Trash2 = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("polyline", { points: "3 6 5 6 21 6" }), /* @__PURE__ */ React.createElement("path", { d: "M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" }), /* @__PURE__ */ React.createElement("path", { d: "M10 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M14 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" }));
+const ImageIcon = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "9", r: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M21 15l-5-5L5 21" }));
+const Download = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" }));
+const Upload = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "17 8 12 3 7 8" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "3", x2: "12", y2: "15" }));
+const ChevronDown = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }));
+const RotateCcw = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("polyline", { points: "1 4 1 10 7 10" }), /* @__PURE__ */ React.createElement("path", { d: "M3.51 15a9 9 0 1 0 2.13-9.36L1 10" }));
+const STORAGE_KEY = "photocards-v2";
+const DEFAULT_CATEGORIES = ["Regular", "POB", "Merch", "Broadcast", "Fansign", "Season's Greetings", "Membership"];
 const HARDCODED_SOURCES = [
-  'ALBUM', 'Apple Music', 'Barnes & Noble', 'DearMyMuse', 'EMART', 'EU', 'Everline', 'FNAC',
-  'HELLO82', 'HELLOLIVE', 'HMV', 'Jump Up Ent', 'Makestar', 'Music Art', 'POP-UP', 'Soundwave',
-  'Target', 'TOKTOQ', 'US', 'Walmart', 'WithMUU', 'YES24',
+  "ALBUM",
+  "Apple Music",
+  "Barnes & Noble",
+  "DearMyMuse",
+  "EMART",
+  "EU",
+  "Everline",
+  "FNAC",
+  "HELLO82",
+  "HELLOLIVE",
+  "HMV",
+  "Jump Up Ent",
+  "Makestar",
+  "Music Art",
+  "POP-UP",
+  "Soundwave",
+  "Target",
+  "TOKTOQ",
+  "US",
+  "Walmart",
+  "WithMUU",
+  "YES24"
 ].sort();
-const OWNED_COLOR = '#7FA687';
-const SOLD_COLOR = '#6B6470';
+const OWNED_COLOR = "#7FA687";
+const SOLD_COLOR = "#6B6470";
 const STATUSES = [
-  { value: 'Wishlist', color: '#8B8FC9' },
-  { value: 'OTW', color: '#E3A34A' },
-  { value: 'WTB', color: '#6E9FA0' },
-  { value: 'WTT', color: '#9B7EBD' },
-  { value: 'WTS', color: '#D98B72' },
-  { value: 'Owned', color: OWNED_COLOR },
-  { value: 'Sold', color: SOLD_COLOR },
+  { value: "Wishlist", color: "#8B8FC9" },
+  { value: "OTW", color: "#E3A34A" },
+  { value: "WTB", color: "#6E9FA0" },
+  { value: "WTT", color: "#9B7EBD" },
+  { value: "WTS", color: "#D98B72" },
+  { value: "Owned", color: OWNED_COLOR },
+  { value: "Sold", color: SOLD_COLOR }
 ];
-
 const theme = {
-  bg: '#17121A',
-  surface: '#211A24',
-  surfaceAlt: '#2B222F',
-  border: '#3A2F3E',
-  text: '#F3ECE3',
-  muted: '#9C8FA0',
-  accent: '#E3A34A',
+  bg: "#17121A",
+  surface: "#211A24",
+  surfaceAlt: "#2B222F",
+  border: "#3A2F3E",
+  text: "#F3ECE3",
+  muted: "#9C8FA0",
+  accent: "#E3A34A"
 };
-
 const emptyForm = {
-  group: '', member: '', album: '', era: '', category: '', releaseDate: '',
-  source: '', versionDetail: '',
-  status: 'Wishlist', frontImage: '', backImage: '', dateSold: '', notes: '', copies: [],
+  group: "",
+  member: "",
+  album: "",
+  era: "",
+  category: "",
+  releaseDate: "",
+  source: "",
+  versionDetail: "",
+  status: "Wishlist",
+  frontImage: "",
+  backImage: "",
+  dateSold: "",
+  notes: "",
+  copies: []
 };
-
 function versionName(card) {
-  return [card.source, card.versionDetail].filter(Boolean).join(' ').trim();
+  return [card.source, card.versionDetail].filter(Boolean).join(" ").trim();
 }
-
 function resolveImageUrl(url) {
-  if (!url) return '';
+  if (!url) return "";
   const trimmed = url.trim();
-  if (trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.startsWith("data:")) return trimmed;
   const fileMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1000`;
   const openMatch = trimmed.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
@@ -105,7 +131,6 @@ function resolveImageUrl(url) {
   if (ucMatch) return `https://drive.google.com/thumbnail?id=${ucMatch[1]}&sz=w1000`;
   return trimmed;
 }
-
 function fileToCompressedDataUrl(file, maxDim = 700, quality = 0.75) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -113,12 +138,18 @@ function fileToCompressedDataUrl(file, maxDim = 700, quality = 0.75) {
       const img = new Image();
       img.onload = () => {
         let { width, height } = img;
-        if (width > height && width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
-        else if (height >= width && height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        if (width > height && width > maxDim) {
+          height = Math.round(height * (maxDim / width));
+          width = maxDim;
+        } else if (height >= width && height > maxDim) {
+          width = Math.round(width * (maxDim / height));
+          height = maxDim;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
       };
       img.onerror = reject;
       img.src = e.target.result;
@@ -127,47 +158,41 @@ function fileToCompressedDataUrl(file, maxDim = 700, quality = 0.75) {
     reader.readAsDataURL(file);
   });
 }
-
 function parsePrice(str) {
   if (!str) return 0;
   const match = String(str).match(/[\d.]+/);
   return match ? parseFloat(match[0]) : 0;
 }
-
 function sumSpent(card) {
   return (card.copies || []).reduce((sum, c) => sum + parsePrice(c.price), 0);
 }
-
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
-
 function mostCommon(arr) {
   const counts = {};
-  arr.forEach(v => { if (v) counts[v] = (counts[v] || 0) + 1; });
-  let best = '', bestCount = 0;
-  Object.entries(counts).forEach(([k, c]) => { if (c > bestCount) { best = k; bestCount = c; } });
+  arr.forEach((v) => {
+    if (v) counts[v] = (counts[v] || 0) + 1;
+  });
+  let best = "", bestCount = 0;
+  Object.entries(counts).forEach(([k, c]) => {
+    if (c > bestCount) {
+      best = k;
+      bestCount = c;
+    }
+  });
   return best;
 }
-
 function isOwned(card) {
-  return card.status === 'Owned';
+  return card.status === "Owned";
 }
-
 function cardBadge(card) {
-  const s = STATUSES.find(s => s.value === card.status);
-  return { label: card.status || 'Wishlist', color: s ? s.color : theme.muted };
+  const s = STATUSES.find((s2) => s2.value === card.status);
+  return { label: card.status || "Wishlist", color: s ? s.color : theme.muted };
 }
-
 function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="block text-[11px] mb-1" style={{ color: theme.muted }}>{label}</span>
-      {children}
-    </label>
-  );
+  return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), children);
 }
-
 function ImageField({ label, value, onChange }) {
   const [busy, setBusy] = useState(false);
   async function handleFile(e) {
@@ -178,97 +203,60 @@ function ImageField({ label, value, onChange }) {
       const dataUrl = await fileToCompressedDataUrl(file);
       onChange(dataUrl);
     } catch (err) {
-      // ignore — leave existing value in place
     } finally {
       setBusy(false);
-      e.target.value = '';
+      e.target.value = "";
     }
   }
-  const isUpload = value && value.startsWith('data:');
-  return (
-    <label className="block">
-      <span className="block text-[11px] mb-1" style={{ color: theme.muted }}>{label}</span>
-      {isUpload ? (
-        <div className="flex items-center gap-2 p-1.5 rounded-lg" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}>
-          <img src={value} alt="" className="w-10 h-14 object-cover rounded shrink-0" />
-          <span className="text-xs flex-1" style={{ color: theme.muted }}>Photo uploaded (test only)</span>
-          <button type="button" onClick={() => onChange('')} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: '#D98B72' }}>Remove</button>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <input value={value} onChange={e => onChange(e.target.value)} placeholder="Paste a link (Drive, Pinterest, Canva)" className="w-full px-2.5 py-2 rounded-lg text-sm" />
-          <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: theme.accent }}>
-            <Upload size={12} /> {busy ? 'Processing photo...' : 'or upload a photo for testing'}
-            <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
-          </label>
-        </div>
-      )}
-    </label>
-  );
+  const isUpload = value && value.startsWith("data:");
+  return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), isUpload ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 p-1.5 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("img", { src: value, alt: "", className: "w-10 h-14 object-cover rounded shrink-0" }), /* @__PURE__ */ React.createElement("span", { className: "text-xs flex-1", style: { color: theme.muted } }, "Photo uploaded (test only)"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => onChange(""), className: "text-xs px-2 py-1 rounded shrink-0", style: { color: "#D98B72" } }, "Remove")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement("input", { value, onChange: (e) => onChange(e.target.value), placeholder: "Paste a link (Drive, Pinterest, Canva)", className: "w-full px-2.5 py-2 rounded-lg text-sm" }), /* @__PURE__ */ React.createElement("label", { className: "inline-flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.accent } }, /* @__PURE__ */ React.createElement(Upload, { size: 12 }), " ", busy ? "Processing photo..." : "or upload a photo for testing", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: handleFile, className: "hidden" }))));
 }
-
 function SelectOrNew({ label, value, options, onChange, placeholder }) {
   const [adding, setAdding] = useState(!value || !options.includes(value));
   if (adding) {
-    return (
-      <label className="block">
-        <span className="block text-[11px] mb-1" style={{ color: theme.muted }}>{label}</span>
-        <div className="flex gap-1.5">
-          <input autoFocus value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full px-2.5 py-2 rounded-lg text-sm" />
-          {options.length > 0 && (
-            <button type="button" onClick={() => setAdding(false)} className="px-2.5 rounded-lg text-xs shrink-0" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}>List</button>
-          )}
-        </div>
-      </label>
-    );
+    return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1.5" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value, onChange: (e) => onChange(e.target.value), placeholder, className: "w-full px-2.5 py-2 rounded-lg text-sm" }), options.length > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setAdding(false), className: "px-2.5 rounded-lg text-xs shrink-0", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "List")));
   }
-  return (
-    <label className="block">
-      <span className="block text-[11px] mb-1" style={{ color: theme.muted }}>{label}</span>
-      <select
-        value={value}
-        onChange={e => { if (e.target.value === '__new__') { setAdding(true); onChange(''); } else onChange(e.target.value); }}
-        className="w-full px-2.5 py-2 rounded-lg text-sm"
-      >
-        <option value="">Select...</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-        <option value="__new__">+ Add new</option>
-      </select>
-    </label>
-  );
+  return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      value,
+      onChange: (e) => {
+        if (e.target.value === "__new__") {
+          setAdding(true);
+          onChange("");
+        } else onChange(e.target.value);
+      },
+      className: "w-full px-2.5 py-2 rounded-lg text-sm"
+    },
+    /* @__PURE__ */ React.createElement("option", { value: "" }, "Select..."),
+    options.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o)),
+    /* @__PURE__ */ React.createElement("option", { value: "__new__" }, "+ Add new")
+  ));
 }
-
 function DetailRow({ label, value }) {
   if (!value) return null;
-  return (
-    <div>
-      <dt className="text-[11px]" style={{ color: theme.muted }}>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("dt", { className: "text-[11px]", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement("dd", null, value));
 }
-
 function PhotocardTracker() {
   const [cards, setCards] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [toast, setToast] = useState('');
-  const [search, setSearch] = useState('');
-  const [filterOwned, setFilterOwned] = useState('');
-  const [filterGroup, setFilterGroup] = useState('');
-  const [filterMember, setFilterMember] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterSource, setFilterSource] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterEra, setFilterEra] = useState('');
-  const [sortBy, setSortBy] = useState('recent');
+  const [toast, setToast] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterOwned, setFilterOwned] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
+  const [filterMember, setFilterMember] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterSource, setFilterSource] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterEra, setFilterEra] = useState("");
+  const [sortBy, setSortBy] = useState("recent");
   const [visibleCount, setVisibleCount] = useState(60);
   const [modalMode, setModalMode] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [detailSide, setDetailSide] = useState('front');
+  const [detailSide, setDetailSide] = useState("front");
   const [showFilters, setShowFilters] = useState(false);
-
   useEffect(() => {
     (async () => {
       try {
@@ -276,74 +264,79 @@ function PhotocardTracker() {
         if (res && res.value) {
           setCards(JSON.parse(res.value));
         } else {
-          // migrate from the earlier version of this app, if present
           try {
-            const old = await storage.get('photocards-v1', false);
+            const old = await storage.get("photocards-v1", false);
             if (old && old.value) {
               const oldCards = JSON.parse(old.value);
-              const migrated = oldCards.map(c => {
-                const owned = ['Owned', 'Duplicate', 'Trading'].includes(c.status);
+              const migrated = oldCards.map((c) => {
+                const owned = ["Owned", "Duplicate", "Trading"].includes(c.status);
                 return {
-                  id: c.id, createdAt: c.createdAt,
-                  group: c.group || '', member: c.member || '', album: '', era: c.era || '',
-                  category: c.category || '', releaseDate: '',
-                  status: owned ? 'Wishlist' : 'Wishlist',
-                  frontImage: c.frontImage || '', backImage: c.backImage || '',
-                  dateSold: '', notes: c.notes || '',
-                  copies: owned ? [{ id: uid(), date: c.dateReceived || c.datePurchased || '', price: c.price || '', seller: c.seller || '' }] : [],
+                  id: c.id,
+                  createdAt: c.createdAt,
+                  group: c.group || "",
+                  member: c.member || "",
+                  album: "",
+                  era: c.era || "",
+                  category: c.category || "",
+                  releaseDate: "",
+                  status: owned ? "Wishlist" : "Wishlist",
+                  frontImage: c.frontImage || "",
+                  backImage: c.backImage || "",
+                  dateSold: "",
+                  notes: c.notes || "",
+                  copies: owned ? [{ id: uid(), date: c.dateReceived || c.datePurchased || "", price: c.price || "", seller: c.seller || "" }] : []
                 };
               });
               setCards(migrated);
               await storage.set(STORAGE_KEY, JSON.stringify(migrated), false);
             }
           } catch (e2) {
-            // nothing to migrate
           }
         }
       } catch (e) {
-        // no saved data yet
       } finally {
         setLoaded(true);
       }
     })();
   }, []);
-
   const persist = useCallback(async (next) => {
     try {
       await storage.set(STORAGE_KEY, JSON.stringify(next), false);
     } catch (e) {
-      setToast('Save failed — this change may not survive closing the tab.');
-      setTimeout(() => setToast(''), 4000);
+      setToast("Save failed \u2014 this change may not survive closing the tab.");
+      setTimeout(() => setToast(""), 4e3);
     }
   }, []);
-
-  const groups = useMemo(() => [...new Set(cards.map(c => c.group).filter(Boolean))].sort(), [cards]);
-  const eras = useMemo(() => [...new Set(cards.filter(c => !filterGroup || c.group === filterGroup).map(c => c.era).filter(Boolean))].sort(), [cards, filterGroup]);
-  const filterMembers = useMemo(() => [...new Set(cards.filter(c => !filterGroup || c.group === filterGroup).map(c => c.member).filter(Boolean))].sort(), [cards, filterGroup]);
+  const groups = useMemo(() => [...new Set(cards.map((c) => c.group).filter(Boolean))].sort(), [cards]);
+  const eras = useMemo(() => [...new Set(cards.filter((c) => !filterGroup || c.group === filterGroup).map((c) => c.era).filter(Boolean))].sort(), [cards, filterGroup]);
+  const filterMembers = useMemo(() => [...new Set(cards.filter((c) => !filterGroup || c.group === filterGroup).map((c) => c.member).filter(Boolean))].sort(), [cards, filterGroup]);
   const categories = useMemo(() => {
-    const existing = new Set(cards.map(c => c.category).filter(Boolean));
-    DEFAULT_CATEGORIES.forEach(c => existing.add(c));
+    const existing = new Set(cards.map((c) => c.category).filter(Boolean));
+    DEFAULT_CATEGORIES.forEach((c) => existing.add(c));
     return [...existing].sort();
   }, [cards]);
   const sourceOptions = useMemo(() => {
     const all = new Set(HARDCODED_SOURCES);
-    cards.forEach(c => { if (c.source) all.add(c.source); });
+    cards.forEach((c) => {
+      if (c.source) all.add(c.source);
+    });
     return [...all].sort();
   }, [cards]);
-  const members = useMemo(() => [...new Set(cards.filter(c => !form.group || c.group === form.group).map(c => c.member).filter(Boolean))].sort(), [cards, form.group]);
-  const formAlbums = useMemo(() => [...new Set(cards.filter(c => !form.group || c.group === form.group).map(c => c.album).filter(Boolean))].sort(), [cards, form.group]);
-  const formEras = useMemo(() => [...new Set(cards.filter(c => !form.album || c.album === form.album).map(c => c.era).filter(Boolean))].sort(), [cards, form.album]);
+  const members = useMemo(() => [...new Set(cards.filter((c) => !form.group || c.group === form.group).map((c) => c.member).filter(Boolean))].sort(), [cards, form.group]);
+  const formAlbums = useMemo(() => [...new Set(cards.filter((c) => !form.group || c.group === form.group).map((c) => c.album).filter(Boolean))].sort(), [cards, form.group]);
+  const formEras = useMemo(() => [...new Set(cards.filter((c) => !form.album || c.album === form.album).map((c) => c.era).filter(Boolean))].sort(), [cards, form.album]);
   const albumEraMap = useMemo(() => {
     const map = {};
-    cards.forEach(c => { if (c.album && c.era && !map[c.album]) map[c.album] = c.era; });
+    cards.forEach((c) => {
+      if (c.album && c.era && !map[c.album]) map[c.album] = c.era;
+    });
     return map;
   }, [cards]);
-
   const filtered = useMemo(() => {
-    let list = cards.filter(c => {
+    let list = cards.filter((c) => {
       const owned = isOwned(c);
-      if (filterOwned === 'owned' && !owned) return false;
-      if (filterOwned === 'missing' && owned) return false;
+      if (filterOwned === "owned" && !owned) return false;
+      if (filterOwned === "missing" && owned) return false;
       if (filterGroup && c.group !== filterGroup) return false;
       if (filterMember && c.member !== filterMember) return false;
       if (filterEra && c.era !== filterEra) return false;
@@ -352,37 +345,46 @@ function PhotocardTracker() {
       if (filterStatus && c.status !== filterStatus) return false;
       if (search) {
         const q = search.toLowerCase();
-        const hay = [c.group, c.member, c.album, c.era, c.category, c.source, c.versionDetail, c.notes, ...(c.copies || []).map(cp => cp.seller)].join(' ').toLowerCase();
+        const hay = [c.group, c.member, c.album, c.era, c.category, c.source, c.versionDetail, c.notes, ...(c.copies || []).map((cp) => cp.seller)].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
     switch (sortBy) {
-      case 'group': list = [...list].sort((a, b) => (a.group || '').localeCompare(b.group) || (a.member || '').localeCompare(b.member)); break;
-      case 'member': list = [...list].sort((a, b) => (a.member || '').localeCompare(b.member)); break;
-      case 'release': list = [...list].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')); break;
-      case 'spent-high': list = [...list].sort((a, b) => sumSpent(b) - sumSpent(a)); break;
-      case 'spent-low': list = [...list].sort((a, b) => sumSpent(a) - sumSpent(b)); break;
-      default: list = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      case "group":
+        list = [...list].sort((a, b) => (a.group || "").localeCompare(b.group) || (a.member || "").localeCompare(b.member));
+        break;
+      case "member":
+        list = [...list].sort((a, b) => (a.member || "").localeCompare(b.member));
+        break;
+      case "release":
+        list = [...list].sort((a, b) => (b.releaseDate || "").localeCompare(a.releaseDate || ""));
+        break;
+      case "spent-high":
+        list = [...list].sort((a, b) => sumSpent(b) - sumSpent(a));
+        break;
+      case "spent-low":
+        list = [...list].sort((a, b) => sumSpent(a) - sumSpent(b));
+        break;
+      default:
+        list = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     }
     return list;
   }, [cards, filterOwned, filterGroup, filterMember, filterEra, filterCategory, filterSource, filterStatus, search, sortBy]);
-
   const visible = filtered.slice(0, visibleCount);
   const activeFilterCount = [filterGroup, filterMember, filterEra, filterCategory, filterSource, filterStatus].filter(Boolean).length;
   const ownedCount = useMemo(() => cards.filter(isOwned).length, [cards]);
-
   function openAdd() {
-    const defaultGroup = mostCommon(cards.map(c => c.group));
-    const defaultMember = mostCommon(cards.filter(c => c.group === defaultGroup).map(c => c.member));
+    const defaultGroup = mostCommon(cards.map((c) => c.group));
+    const defaultMember = mostCommon(cards.filter((c) => c.group === defaultGroup).map((c) => c.member));
     setForm({ ...emptyForm, group: defaultGroup, member: defaultMember, copies: [] });
     setEditingId(null);
-    setModalMode('add');
+    setModalMode("add");
   }
   function openEdit(card) {
-    setForm({ ...emptyForm, ...card, copies: card.copies ? card.copies.map(c => ({ ...c })) : [] });
+    setForm({ ...emptyForm, ...card, copies: card.copies ? card.copies.map((c) => ({ ...c })) : [] });
     setEditingId(card.id);
-    setModalMode('edit');
+    setModalMode("edit");
     setSelectedCard(null);
   }
   function closeModal() {
@@ -390,67 +392,61 @@ function PhotocardTracker() {
     setForm(emptyForm);
     setEditingId(null);
   }
-
   function handleAlbumChange(v) {
     const era = albumEraMap[v];
-    setForm(f => ({ ...f, album: v, era: era || f.era }));
+    setForm((f) => ({ ...f, album: v, era: era || f.era }));
   }
-
   function addCopy() {
-    setForm(f => ({ ...f, status: 'Owned', copies: [...f.copies, { id: uid(), date: '', price: '', seller: '' }] }));
+    setForm((f) => ({ ...f, status: "Owned", copies: [...f.copies, { id: uid(), date: "", price: "", seller: "" }] }));
   }
   async function quickAddCopy(cardId) {
-    const next = cards.map(c => (c.id === cardId ? { ...c, status: 'Owned', copies: [...(c.copies || []), { id: uid(), date: '', price: '', seller: '' }] } : c));
+    const next = cards.map((c) => c.id === cardId ? { ...c, status: "Owned", copies: [...c.copies || [], { id: uid(), date: "", price: "", seller: "" }] } : c);
     setCards(next);
     await persist(next);
-    setToast('Copy added to collection.');
-    setTimeout(() => setToast(''), 2000);
+    setToast("Copy added to collection.");
+    setTimeout(() => setToast(""), 2e3);
   }
   function updateCopy(idx, key, value) {
-    setForm(f => ({ ...f, copies: f.copies.map((c, i) => (i === idx ? { ...c, [key]: value } : c)) }));
+    setForm((f) => ({ ...f, copies: f.copies.map((c, i) => i === idx ? { ...c, [key]: value } : c) }));
   }
   function removeCopy(idx) {
-    setForm(f => ({ ...f, copies: f.copies.filter((_, i) => i !== idx) }));
+    setForm((f) => ({ ...f, copies: f.copies.filter((_, i) => i !== idx) }));
   }
-
   async function saveForm() {
     if (!form.group.trim()) {
-      setToast('Group is required.');
-      setTimeout(() => setToast(''), 3000);
+      setToast("Group is required.");
+      setTimeout(() => setToast(""), 3e3);
       return;
     }
     let next;
     if (editingId) {
-      next = cards.map(c => (c.id === editingId ? { ...c, ...form } : c));
+      next = cards.map((c) => c.id === editingId ? { ...c, ...form } : c);
     } else {
       next = [...cards, { ...form, id: uid(), createdAt: Date.now() }];
     }
     setCards(next);
     closeModal();
     await persist(next);
-    setToast(editingId ? 'Photocard updated.' : 'Photocard added.');
-    setTimeout(() => setToast(''), 2500);
+    setToast(editingId ? "Photocard updated." : "Photocard added.");
+    setTimeout(() => setToast(""), 2500);
   }
-
   async function deleteCard(id) {
-    const next = cards.filter(c => c.id !== id);
+    const next = cards.filter((c) => c.id !== id);
     setCards(next);
     setSelectedCard(null);
     await persist(next);
-    setToast('Photocard deleted.');
-    setTimeout(() => setToast(''), 2500);
+    setToast("Photocard deleted.");
+    setTimeout(() => setToast(""), 2500);
   }
-
   function exportJson() {
-    const blob = new Blob([JSON.stringify(cards, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(cards, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `photocards-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `photocards-backup-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
-
   function importJson(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -458,27 +454,29 @@ function PhotocardTracker() {
     reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data)) throw new Error('bad format');
+        if (!Array.isArray(data)) throw new Error("bad format");
         setCards(data);
         await persist(data);
         setToast(`Imported ${data.length} photocards.`);
-        setTimeout(() => setToast(''), 3000);
+        setTimeout(() => setToast(""), 3e3);
       } catch (err) {
-        setToast('Import failed — file is not a valid backup.');
-        setTimeout(() => setToast(''), 3000);
+        setToast("Import failed \u2014 file is not a valid backup.");
+        setTimeout(() => setToast(""), 3e3);
       }
     };
     reader.readAsText(file);
-    e.target.value = '';
+    e.target.value = "";
   }
-
   function clearFilters() {
-    setFilterGroup(''); setFilterMember(''); setFilterEra(''); setFilterCategory(''); setFilterSource(''); setFilterStatus(''); setSearch('');
+    setFilterGroup("");
+    setFilterMember("");
+    setFilterEra("");
+    setFilterCategory("");
+    setFilterSource("");
+    setFilterStatus("");
+    setSearch("");
   }
-
-  return (
-    <div style={{ background: theme.bg, color: theme.text, minHeight: '100%', fontFamily: "'Inter', system-ui, sans-serif" }} className="w-full min-h-screen">
-      <style>{`
+  return /* @__PURE__ */ React.createElement("div", { style: { background: theme.bg, color: theme.text, minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }, className: "w-full min-h-screen" }, /* @__PURE__ */ React.createElement("style", null, `
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
         .pc-font-display { font-family: 'Fraunces', serif; }
         .pc-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
@@ -487,337 +485,139 @@ function PhotocardTracker() {
         input, select, textarea { background: ${theme.surfaceAlt}; border: 1px solid ${theme.border}; color: ${theme.text}; }
         input::placeholder, textarea::placeholder { color: ${theme.muted}; }
         input:focus, select:focus, textarea:focus { outline: 2px solid ${theme.accent}; outline-offset: 1px; }
-      `}</style>
-
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between gap-3 mb-5">
-          <div>
-            <h1 className="pc-font-display text-2xl sm:text-3xl" style={{ fontWeight: 600 }}>Photocard Binder</h1>
-            <p className="text-sm mt-0.5" style={{ color: theme.muted }}>{ownedCount} owned · {cards.length} tracked</p>
-          </div>
-          <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm shrink-0" style={{ background: theme.accent, color: '#1A1410' }}>
-            <Plus size={16} /> Add
-          </button>
-        </div>
-
-        <div className="relative mb-3">
-          <Search size={16} style={{ color: theme.muted }} className="absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={search}
-            onChange={e => { setSearch(e.target.value); setVisibleCount(60); }}
-            placeholder="Search group, member, album, era, seller, notes..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1">
-          {[{ value: '', label: 'Everything' }, { value: 'owned', label: 'Owned' }, { value: 'missing', label: 'Not owned' }].map(o => (
-            <button key={o.value} onClick={() => { setFilterOwned(o.value); setVisibleCount(60); }}
-              className="px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap"
-              style={{ background: filterOwned === o.value ? theme.accent : theme.surfaceAlt, color: filterOwned === o.value ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` }}>
-              {o.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pc-scroll pb-1">
-          <button onClick={() => setShowFilters(s => !s)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0"
-            style={{ background: activeFilterCount ? theme.accent : theme.surfaceAlt, color: activeFilterCount ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` }}>
-            Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-            <ChevronDown size={13} style={{ transform: showFilters ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-          </button>
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs shrink-0" style={{ color: theme.muted }}>
-              <RotateCcw size={12} /> Clear
-            </button>
-          )}
-        </div>
-
-        {showFilters && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 p-3 rounded-xl" style={{ background: theme.surface, border: `1px solid ${theme.border}` }}>
-            <select value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setFilterEra(''); setFilterMember(''); setVisibleCount(60); }} className="px-2 py-2 rounded-lg text-sm">
-              <option value="">All groups</option>
-              {groups.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <select value={filterMember} onChange={e => { setFilterMember(e.target.value); setVisibleCount(60); }} className="px-2 py-2 rounded-lg text-sm">
-              <option value="">All members</option>
-              {filterMembers.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <select value={filterEra} onChange={e => { setFilterEra(e.target.value); setVisibleCount(60); }} className="px-2 py-2 rounded-lg text-sm">
-              <option value="">All eras</option>
-              {eras.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setVisibleCount(60); }} className="px-2 py-2 rounded-lg text-sm">
-              <option value="">All types</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select value={filterSource} onChange={e => { setFilterSource(e.target.value); setVisibleCount(60); }} className="px-2 py-2 rounded-lg text-sm">
-              <option value="">All sources</option>
-              {sourceOptions.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setVisibleCount(60); }} className="px-2 py-2 rounded-lg text-sm">
-              <option value="">All statuses</option>
-              {STATUSES.map(s => <option key={s.value} value={s.value}>{s.value}</option>)}
-            </select>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1">
-              <option value="recent">Recently added</option>
-              <option value="group">Group A–Z</option>
-              <option value="member">Member A–Z</option>
-              <option value="release">Release date</option>
-              <option value="spent-high">Total spent: high to low</option>
-              <option value="spent-low">Total spent: low to high</option>
-            </select>
-          </div>
-        )}
-
-        {!loaded ? (
-          <div className="text-sm py-12 text-center" style={{ color: theme.muted }}>Loading your collection...</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 rounded-xl" style={{ background: theme.surface, border: `1px dashed ${theme.border}` }}>
-            <p className="text-sm" style={{ color: theme.muted }}>{cards.length === 0 ? 'No photocards yet. Add your first one.' : 'Nothing matches these filters.'}</p>
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-x-3 gap-y-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-              {visible.map(card => {
-                const badge = cardBadge(card);
-                const owned = isOwned(card);
-                const copyCount = (card.copies || []).length;
-                return (
-                  <div key={card.id}>
-                    <div className="flex items-baseline justify-between gap-1 mb-1.5">
-                      <span className="text-sm font-semibold truncate">{card.group || '—'}</span>
-                      <span className="text-sm font-semibold truncate text-right">{card.member || ''}</span>
-                    </div>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => { setSelectedCard(card); setDetailSide('front'); }}
-                      onKeyDown={e => { if (e.key === 'Enter') { setSelectedCard(card); setDetailSide('front'); } }}
-                      className="pc-card rounded-xl overflow-hidden relative cursor-pointer"
-                      style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}
-                    >
-                      {card.frontImage ? (
-                        <img
-                          src={resolveImageUrl(card.frontImage)}
-                          alt={`${card.member || card.group} photocard`}
-                          loading="lazy"
-                          className="w-full h-full object-cover"
-                          onError={e => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
-                        />
-                      ) : null}
-                      <div className="w-full h-full items-center justify-center flex-col gap-1" style={{ display: card.frontImage ? 'none' : 'flex', color: theme.muted }}>
-                        <ImageIcon size={20} />
-                        <span className="text-[10px]">No image</span>
-                      </div>
-                      <button
-                        onClick={e => { e.stopPropagation(); openEdit(card); }}
-                        className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide"
-                        style={{ background: badge.color, color: '#1A1410' }}
-                      >
-                        {badge.label}
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); quickAddCopy(card.id); }}
-                        title={owned ? 'Add another copy' : 'Add to my collection'}
-                        className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)' }}
-                      >
-                        {owned ? copyCount : <Plus size={12} />}
-                      </button>
-                    </div>
-                    <div className="flex items-end justify-between gap-1.5 mt-1.5">
-                      <div className="min-w-0">
-                        {card.album && <p className="text-[11px] truncate" style={{ color: theme.muted }}>{card.album}</p>}
-                        {versionName(card) && <p className="text-xs font-semibold truncate">{versionName(card)}</p>}
-                      </div>
-                      {card.category && <p className="text-[10px] italic shrink-0" style={{ color: theme.muted }}>{card.category}</p>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {visibleCount < filtered.length && (
-              <div className="text-center mt-5">
-                <button onClick={() => setVisibleCount(v => v + 60)} className="px-4 py-2 rounded-full text-sm" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}>
-                  Load more ({filtered.length - visibleCount} remaining)
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="flex items-center justify-center gap-4 mt-8 pt-4" style={{ borderTop: `1px solid ${theme.border}` }}>
-          <button onClick={exportJson} className="flex items-center gap-1.5 text-xs" style={{ color: theme.muted }}><Download size={13} /> Export backup</button>
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: theme.muted }}>
-            <Upload size={13} /> Import backup
-            <input type="file" accept=".json" onChange={importJson} className="hidden" />
-          </label>
-        </div>
-      </div>
-
-      {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl p-5" style={{ background: theme.surface, border: `1px solid ${theme.border}` }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="pc-font-display text-lg" style={{ fontWeight: 600 }}>{editingId ? 'Edit photocard' : 'Add photocard'}</h2>
-              <button type="button" onClick={closeModal}><X size={18} /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <SelectOrNew label="Group *" value={form.group} options={groups} placeholder="New group name" onChange={v => setForm(f => ({ ...f, group: v }))} />
-                <SelectOrNew label="Member" value={form.member} options={members} placeholder="New member name" onChange={v => setForm(f => ({ ...f, member: v }))} />
-              </div>
-              <ImageField label="Front image" value={form.frontImage} onChange={v => setForm(f => ({ ...f, frontImage: v }))} />
-              <ImageField label="Back image (optional)" value={form.backImage} onChange={v => setForm(f => ({ ...f, backImage: v }))} />
-              <div className="grid grid-cols-2 gap-2">
-                <SelectOrNew label="Album" value={form.album} options={formAlbums} placeholder="New album name" onChange={handleAlbumChange} />
-                <SelectOrNew label="Era (auto-fills)" value={form.era} options={formEras} placeholder="Era name" onChange={v => setForm(f => ({ ...f, era: v }))} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <SelectOrNew label="Source / store" value={form.source} options={sourceOptions} placeholder="New source name" onChange={v => setForm(f => ({ ...f, source: v }))} />
-                <Field label="Version / edition"><input value={form.versionDetail} onChange={e => setForm(f => ({ ...f, versionDetail: e.target.value }))} placeholder="e.g. Lucky Draw 3.0, Exclusive Cherry Ver" className="w-full px-2.5 py-2 rounded-lg text-sm" /></Field>
-              </div>
-              {(form.source || form.versionDetail) && (
-                <p className="text-xs -mt-1.5" style={{ color: theme.muted }}>→ {versionName(form) || '—'}</p>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <SelectOrNew label="Type" value={form.category} options={categories} placeholder="New type (e.g. Fansign)" onChange={v => setForm(f => ({ ...f, category: v }))} />
-                <Field label="Date released"><input type="date" value={form.releaseDate} onChange={e => setForm(f => ({ ...f, releaseDate: e.target.value }))} className="w-full px-2.5 py-2 rounded-lg text-sm" /></Field>
-              </div>
-              <Field label="Status">
-                <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-2.5 py-2 rounded-lg text-sm">
-                  {STATUSES.map(s => <option key={s.value} value={s.value}>{s.value}</option>)}
-                </select>
-              </Field>
-
-              <div>
-                <span className="block text-[11px] mb-1.5" style={{ color: theme.muted }}>
-                  {form.copies.length === 0 ? 'Not in your collection yet' : `${form.copies.length} cop${form.copies.length === 1 ? 'y' : 'ies'} owned`}
-                </span>
-                <div className="space-y-2">
-                  {form.copies.map((copy, idx) => (
-                    <div key={copy.id} className="flex gap-1.5 items-start p-2 rounded-lg" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}>
-                      <div className="flex-1 grid grid-cols-3 gap-1.5">
-                        <input type="date" value={copy.date} onChange={e => updateCopy(idx, 'date', e.target.value)} className="px-2 py-1.5 rounded text-xs" />
-                        <input type="text" placeholder="Price" value={copy.price} onChange={e => updateCopy(idx, 'price', e.target.value)} className="px-2 py-1.5 rounded text-xs" />
-                        <input type="text" placeholder="Seller" value={copy.seller} onChange={e => updateCopy(idx, 'seller', e.target.value)} className="px-2 py-1.5 rounded text-xs" />
-                      </div>
-                      <button type="button" onClick={() => removeCopy(idx)} className="p-1.5 shrink-0" style={{ color: '#D98B72' }}><X size={14} /></button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={addCopy} className="mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: theme.accent, color: '#1A1410' }}>
-                  <Plus size={12} /> {form.copies.length === 0 ? 'Add to my collection' : 'Add another copy'}
-                </button>
-              </div>
-
-              <Field label="Date sold (optional)"><input type="date" value={form.dateSold} onChange={e => setForm(f => ({ ...f, dateSold: e.target.value }))} className="w-full px-2.5 py-2 rounded-lg text-sm" /></Field>
-              <Field label="Notes">
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-2.5 py-2 rounded-lg text-sm resize-none" />
-              </Field>
-            </div>
-            <div className="flex gap-2 mt-5">
-              {editingId && (
-                <button type="button" onClick={() => deleteCard(editingId)} className="px-3 py-2 rounded-full text-sm flex items-center gap-1" style={{ color: '#D98B72' }}>
-                  <Trash2 size={14} /> Delete
-                </button>
-              )}
-              <button type="button" onClick={saveForm} className="flex-1 py-2 rounded-full text-sm font-medium" style={{ background: theme.accent, color: '#1A1410' }}>
-                {editingId ? 'Save changes' : 'Add to collection'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedCard && !modalMode && (() => {
-        const badge = cardBadge(selectedCard);
-        const spent = sumSpent(selectedCard);
-        return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setSelectedCard(null)}>
-            <div onClick={e => e.stopPropagation()} className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl" style={{ background: theme.surface, border: `1px solid ${theme.border}` }}>
-              <div className="relative">
-                <div style={{ aspectRatio: '63 / 88', maxHeight: '55vh', margin: '0 auto', background: theme.surfaceAlt }} className="overflow-hidden flex items-center justify-center">
-                  {(detailSide === 'front' ? selectedCard.frontImage : selectedCard.backImage) ? (
-                    <img
-                      src={resolveImageUrl(detailSide === 'front' ? selectedCard.frontImage : selectedCard.backImage)}
-                      alt=""
-                      className="w-full h-full object-contain"
-                      onError={e => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1" style={{ color: theme.muted }}>
-                      <ImageIcon size={28} /><span className="text-xs">No {detailSide} image</span>
-                    </div>
-                  )}
-                </div>
-                <button onClick={() => setSelectedCard(null)} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                  <X size={16} color="#fff" />
-                </button>
-                {selectedCard.backImage && (
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex rounded-full overflow-hidden text-xs" style={{ border: `1px solid ${theme.border}` }}>
-                    <button onClick={() => setDetailSide('front')} className="px-3 py-1" style={{ background: detailSide === 'front' ? theme.accent : theme.surfaceAlt, color: detailSide === 'front' ? '#1A1410' : theme.text }}>Front</button>
-                    <button onClick={() => setDetailSide('back')} className="px-3 py-1" style={{ background: detailSide === 'back' ? theme.accent : theme.surfaceAlt, color: detailSide === 'back' ? '#1A1410' : theme.text }}>Back</button>
-                  </div>
-                )}
-              </div>
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-1 gap-2">
-                  <h2 className="pc-font-display text-xl" style={{ fontWeight: 600 }}>{selectedCard.member || selectedCard.group}</h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 mt-1" style={{ background: badge.color, color: '#1A1410' }}>
-                    {badge.label}
-                  </span>
-                </div>
-                <p className="text-sm mb-4" style={{ color: theme.muted }}>
-                  {selectedCard.group}{selectedCard.album ? ` · ${selectedCard.album}` : ''}{selectedCard.era ? ` · ${selectedCard.era}` : ''}{selectedCard.category ? ` · ${selectedCard.category}` : ''}
-                </p>
-                {versionName(selectedCard) && (
-                  <p className="text-sm mb-2 font-medium">{versionName(selectedCard)}</p>
-                )}
-                <dl className="grid grid-cols-2 gap-y-2 text-sm mb-4">
-                  <DetailRow label="Released" value={selectedCard.releaseDate} />
-                  <DetailRow label="Sold" value={selectedCard.dateSold} />
-                  <DetailRow label="Total spent" value={spent ? spent.toFixed(2) : ''} />
-                </dl>
-                {(selectedCard.copies || []).length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-[11px] mb-1.5" style={{ color: theme.muted }}>Copies owned</p>
-                    <div className="space-y-1.5">
-                      {selectedCard.copies.map((c, i) => (
-                        <div key={c.id} className="text-sm px-2.5 py-2 rounded-lg" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}>
-                          <span className="font-medium">Copy {i + 1}</span> — {c.date || 'no date'}{c.price ? ` · ${c.price}` : ''}{c.seller ? ` · ${c.seller}` : ''}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {selectedCard.notes && <p className="text-sm mb-4" style={{ color: theme.muted }}>{selectedCard.notes}</p>}
-                <div className="flex gap-2">
-                  <button onClick={() => openEdit(selectedCard)} className="flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1.5" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}` }}>
-                    <Pencil size={14} /> Edit
-                  </button>
-                  <button onClick={() => deleteCard(selectedCard.id)} className="py-2 px-4 rounded-full text-sm flex items-center gap-1.5" style={{ color: '#D98B72', border: `1px solid ${theme.border}` }}>
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {toast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm z-50 text-center" style={{ background: theme.surfaceAlt, border: `1px solid ${theme.border}`, maxWidth: '90vw' }}>
-          {toast}
-        </div>
-      )}
-    </div>
-  );
+      `), /* @__PURE__ */ React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-3 mb-5" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "pc-font-display text-2xl sm:text-3xl", style: { fontWeight: 600 } }, "Photocard Binder"), /* @__PURE__ */ React.createElement("p", { className: "text-sm mt-0.5", style: { color: theme.muted } }, ownedCount, " owned \xB7 ", cards.length, " tracked")), /* @__PURE__ */ React.createElement("button", { onClick: openAdd, className: "flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm shrink-0", style: { background: theme.accent, color: "#1A1410" } }, /* @__PURE__ */ React.createElement(Plus, { size: 16 }), " Add")), /* @__PURE__ */ React.createElement("div", { className: "relative mb-3" }, /* @__PURE__ */ React.createElement(Search, { size: 16, style: { color: theme.muted }, className: "absolute left-3 top-1/2 -translate-y-1/2" }), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      value: search,
+      onChange: (e) => {
+        setSearch(e.target.value);
+        setVisibleCount(60);
+      },
+      placeholder: "Search group, member, album, era, seller, notes...",
+      className: "w-full pl-9 pr-3 py-2.5 rounded-xl text-sm"
+    }
+  )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [{ value: "", label: "Everything" }, { value: "owned", label: "Owned" }, { value: "missing", label: "Not owned" }].map((o) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: o.value,
+      onClick: () => {
+        setFilterOwned(o.value);
+        setVisibleCount(60);
+      },
+      className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap",
+      style: { background: filterOwned === o.value ? theme.accent : theme.surfaceAlt, color: filterOwned === o.value ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` }
+    },
+    o.label
+  ))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-4 overflow-x-auto pc-scroll pb-1" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => setShowFilters((s) => !s),
+      className: "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0",
+      style: { background: activeFilterCount ? theme.accent : theme.surfaceAlt, color: activeFilterCount ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` }
+    },
+    "Filters ",
+    activeFilterCount > 0 && `(${activeFilterCount})`,
+    /* @__PURE__ */ React.createElement(ChevronDown, { size: 13, style: { transform: showFilters ? "rotate(180deg)" : "none", transition: "transform .15s" } })
+  ), activeFilterCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: clearFilters, className: "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs shrink-0", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 12 }), " Clear")), showFilters && /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 p-3 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("select", { value: filterGroup, onChange: (e) => {
+    setFilterGroup(e.target.value);
+    setFilterEra("");
+    setFilterMember("");
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All groups"), groups.map((g) => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, g))), /* @__PURE__ */ React.createElement("select", { value: filterMember, onChange: (e) => {
+    setFilterMember(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All members"), filterMembers.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, m))), /* @__PURE__ */ React.createElement("select", { value: filterEra, onChange: (e) => {
+    setFilterEra(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All eras"), eras.map((e) => /* @__PURE__ */ React.createElement("option", { key: e, value: e }, e))), /* @__PURE__ */ React.createElement("select", { value: filterCategory, onChange: (e) => {
+    setFilterCategory(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All types"), categories.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))), /* @__PURE__ */ React.createElement("select", { value: filterSource, onChange: (e) => {
+    setFilterSource(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All sources"), sourceOptions.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => {
+    setFilterStatus(e.target.value);
+    setVisibleCount(60);
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All statuses"), STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value))), /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? "No photocards yet. Add your first one." : "Nothing matches these filters.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" } }, visible.map((card) => {
+    const badge = cardBadge(card);
+    const owned = isOwned(card);
+    const copyCount = (card.copies || []).length;
+    return /* @__PURE__ */ React.createElement("div", { key: card.id }, /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline justify-between gap-1 mb-1.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold truncate" }, card.group || "\u2014"), /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold truncate text-right" }, card.member || "")), /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        role: "button",
+        tabIndex: 0,
+        onClick: () => {
+          setSelectedCard(card);
+          setDetailSide("front");
+        },
+        onKeyDown: (e) => {
+          if (e.key === "Enter") {
+            setSelectedCard(card);
+            setDetailSide("front");
+          }
+        },
+        className: "pc-card rounded-xl overflow-hidden relative cursor-pointer",
+        style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` }
+      },
+      card.frontImage ? /* @__PURE__ */ React.createElement(
+        "img",
+        {
+          src: resolveImageUrl(card.frontImage),
+          alt: `${card.member || card.group} photocard`,
+          loading: "lazy",
+          className: "w-full h-full object-cover",
+          onError: (e) => {
+            e.target.style.display = "none";
+            if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+          }
+        }
+      ) : null,
+      /* @__PURE__ */ React.createElement("div", { className: "w-full h-full items-center justify-center flex-col gap-1", style: { display: card.frontImage ? "none" : "flex", color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 20 }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px]" }, "No image")),
+      /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            openEdit(card);
+          },
+          className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
+          style: { background: badge.color, color: "#1A1410" }
+        },
+        badge.label
+      ),
+      /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            quickAddCopy(card.id);
+          },
+          title: owned ? "Add another copy" : "Add to my collection",
+          className: "absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+          style: { background: "rgba(0,0,0,0.55)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }
+        },
+        owned ? copyCount : /* @__PURE__ */ React.createElement(Plus, { size: 12 })
+      )
+    ), /* @__PURE__ */ React.createElement("div", { className: "flex items-end justify-between gap-1.5 mt-1.5" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, card.album && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] truncate", style: { color: theme.muted } }, card.album), versionName(card) && /* @__PURE__ */ React.createElement("p", { className: "text-xs font-semibold truncate" }, versionName(card))), card.category && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] italic shrink-0", style: { color: theme.muted } }, card.category)));
+  })), visibleCount < filtered.length && /* @__PURE__ */ React.createElement("div", { className: "text-center mt-5" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setVisibleCount((v) => v + 60), className: "px-4 py-2 rounded-full text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Load more (", filtered.length - visibleCount, " remaining)"))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-4 mt-8 pt-4", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: exportJson, className: "flex items-center gap-1.5 text-xs", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Download, { size: 13 }), " Export backup"), /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Upload, { size: 13 }), " Import backup", /* @__PURE__ */ React.createElement("input", { type: "file", accept: ".json", onChange: importJson, className: "hidden" })))), modalMode && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4", style: { background: "rgba(0,0,0,0.6)" }, onClick: closeModal }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl p-5", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-4" }, /* @__PURE__ */ React.createElement("h2", { className: "pc-font-display text-lg", style: { fontWeight: 600 } }, editingId ? "Edit photocard" : "Add photocard"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: closeModal }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Group *", value: form.group, options: groups, placeholder: "New group name", onChange: (v) => setForm((f) => ({ ...f, group: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Member", value: form.member, options: members, placeholder: "New member name", onChange: (v) => setForm((f) => ({ ...f, member: v })) })), /* @__PURE__ */ React.createElement(ImageField, { label: "Front image", value: form.frontImage, onChange: (v) => setForm((f) => ({ ...f, frontImage: v })) }), /* @__PURE__ */ React.createElement(ImageField, { label: "Back image (optional)", value: form.backImage, onChange: (v) => setForm((f) => ({ ...f, backImage: v })) }), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Album", value: form.album, options: formAlbums, placeholder: "New album name", onChange: handleAlbumChange }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Era (auto-fills)", value: form.era, options: formEras, placeholder: "Era name", onChange: (v) => setForm((f) => ({ ...f, era: v })) })), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Source / store", value: form.source, options: sourceOptions, placeholder: "New source name", onChange: (v) => setForm((f) => ({ ...f, source: v })) }), /* @__PURE__ */ React.createElement(Field, { label: "Version / edition" }, /* @__PURE__ */ React.createElement("input", { value: form.versionDetail, onChange: (e) => setForm((f) => ({ ...f, versionDetail: e.target.value })), placeholder: "e.g. Lucky Draw 3.0, Exclusive Cherry Ver", className: "w-full px-2.5 py-2 rounded-lg text-sm" }))), (form.source || form.versionDetail) && /* @__PURE__ */ React.createElement("p", { className: "text-xs -mt-1.5", style: { color: theme.muted } }, "\u2192 ", versionName(form) || "\u2014"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Type", value: form.category, options: categories, placeholder: "New type (e.g. Fansign)", onChange: (v) => setForm((f) => ({ ...f, category: v })) }), /* @__PURE__ */ React.createElement(Field, { label: "Date released" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.releaseDate, onChange: (e) => setForm((f) => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }))), /* @__PURE__ */ React.createElement(Field, { label: "Status" }, /* @__PURE__ */ React.createElement("select", { value: form.status, onChange: (e) => setForm((f) => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }, STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, form.copies.length === 0 ? "Not in your collection yet" : `${form.copies.length} cop${form.copies.length === 1 ? "y" : "ies"} owned`), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, form.copies.map((copy, idx) => /* @__PURE__ */ React.createElement("div", { key: copy.id, className: "flex gap-1.5 items-start p-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 grid grid-cols-3 gap-1.5" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: copy.date, onChange: (e) => updateCopy(idx, "date", e.target.value), className: "px-2 py-1.5 rounded text-xs" }), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Price", value: copy.price, onChange: (e) => updateCopy(idx, "price", e.target.value), className: "px-2 py-1.5 rounded text-xs" }), /* @__PURE__ */ React.createElement("input", { type: "text", placeholder: "Seller", value: copy.seller, onChange: (e) => updateCopy(idx, "seller", e.target.value), className: "px-2 py-1.5 rounded text-xs" })), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => removeCopy(idx), className: "p-1.5 shrink-0", style: { color: "#D98B72" } }, /* @__PURE__ */ React.createElement(X, { size: 14 }))))), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: addCopy, className: "mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium", style: { background: theme.accent, color: "#1A1410" } }, /* @__PURE__ */ React.createElement(Plus, { size: 12 }), " ", form.copies.length === 0 ? "Add to my collection" : "Add another copy")), /* @__PURE__ */ React.createElement(Field, { label: "Date sold (optional)" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.dateSold, onChange: (e) => setForm((f) => ({ ...f, dateSold: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })), /* @__PURE__ */ React.createElement(Field, { label: "Notes" }, /* @__PURE__ */ React.createElement("textarea", { value: form.notes, onChange: (e) => setForm((f) => ({ ...f, notes: e.target.value })), rows: 2, className: "w-full px-2.5 py-2 rounded-lg text-sm resize-none" }))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 mt-5" }, editingId && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => deleteCard(editingId), className: "px-3 py-2 rounded-full text-sm flex items-center gap-1", style: { color: "#D98B72" } }, /* @__PURE__ */ React.createElement(Trash2, { size: 14 }), " Delete"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: saveForm, className: "flex-1 py-2 rounded-full text-sm font-medium", style: { background: theme.accent, color: "#1A1410" } }, editingId ? "Save changes" : "Add to collection")))), selectedCard && !modalMode && (() => {
+    const badge = cardBadge(selectedCard);
+    const spent = sumSpent(selectedCard);
+    return /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4", style: { background: "rgba(0,0,0,0.6)" }, onClick: () => setSelectedCard(null) }, /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement("div", { style: { aspectRatio: "63 / 88", maxHeight: "55vh", margin: "0 auto", background: theme.surfaceAlt }, className: "overflow-hidden flex items-center justify-center" }, (detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage) ? /* @__PURE__ */ React.createElement(
+      "img",
+      {
+        src: resolveImageUrl(detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage),
+        alt: "",
+        className: "w-full h-full object-contain",
+        onError: (e) => {
+          e.target.style.display = "none";
+        }
+      }
+    ) : /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center gap-1", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 28 }), /* @__PURE__ */ React.createElement("span", { className: "text-xs" }, "No ", detailSide, " image"))), /* @__PURE__ */ React.createElement("button", { onClick: () => setSelectedCard(null), className: "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center", style: { background: "rgba(0,0,0,0.5)" } }, /* @__PURE__ */ React.createElement(X, { size: 16, color: "#fff" })), selectedCard.backImage && /* @__PURE__ */ React.createElement("div", { className: "absolute bottom-3 left-1/2 -translate-x-1/2 flex rounded-full overflow-hidden text-xs", style: { border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setDetailSide("front"), className: "px-3 py-1", style: { background: detailSide === "front" ? theme.accent : theme.surfaceAlt, color: detailSide === "front" ? "#1A1410" : theme.text } }, "Front"), /* @__PURE__ */ React.createElement("button", { onClick: () => setDetailSide("back"), className: "px-3 py-1", style: { background: detailSide === "back" ? theme.accent : theme.surfaceAlt, color: detailSide === "back" ? "#1A1410" : theme.text } }, "Back"))), /* @__PURE__ */ React.createElement("div", { className: "p-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-start justify-between mb-1 gap-2" }, /* @__PURE__ */ React.createElement("h2", { className: "pc-font-display text-xl", style: { fontWeight: 600 } }, selectedCard.member || selectedCard.group), /* @__PURE__ */ React.createElement("span", { className: "px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 mt-1", style: { background: badge.color, color: "#1A1410" } }, badge.label)), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.group, selectedCard.album ? ` \xB7 ${selectedCard.album}` : "", selectedCard.era ? ` \xB7 ${selectedCard.era}` : "", selectedCard.category ? ` \xB7 ${selectedCard.category}` : ""), versionName(selectedCard) && /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-2 font-medium" }, versionName(selectedCard)), /* @__PURE__ */ React.createElement("dl", { className: "grid grid-cols-2 gap-y-2 text-sm mb-4" }, /* @__PURE__ */ React.createElement(DetailRow, { label: "Released", value: selectedCard.releaseDate }), /* @__PURE__ */ React.createElement(DetailRow, { label: "Sold", value: selectedCard.dateSold }), /* @__PURE__ */ React.createElement(DetailRow, { label: "Total spent", value: spent ? spent.toFixed(2) : "" })), (selectedCard.copies || []).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Copies owned"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, selectedCard.copies.map((c, i) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "text-sm px-2.5 py-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", { className: "font-medium" }, "Copy ", i + 1), " \u2014 ", c.date || "no date", c.price ? ` \xB7 ${c.price}` : "", c.seller ? ` \xB7 ${c.seller}` : "")))), selectedCard.notes && /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.notes), /* @__PURE__ */ React.createElement("div", { className: "flex gap-2" }, /* @__PURE__ */ React.createElement("button", { onClick: () => openEdit(selectedCard), className: "flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1.5", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Pencil, { size: 14 }), " Edit"), /* @__PURE__ */ React.createElement("button", { onClick: () => deleteCard(selectedCard.id), className: "py-2 px-4 rounded-full text-sm flex items-center gap-1.5", style: { color: "#D98B72", border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Trash2, { size: 14 }), " Delete")))));
+  })(), toast && /* @__PURE__ */ React.createElement("div", { className: "fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm z-50 text-center", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}`, maxWidth: "90vw" } }, toast));
 }
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<PhotocardTracker />);
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(/* @__PURE__ */ React.createElement(PhotocardTracker, null));
 </script>
 </body>
 </html>
