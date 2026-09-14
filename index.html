@@ -105,6 +105,7 @@ function AppShell() {
   )), /* @__PURE__ */ React.createElement(PhotocardTracker, { isOwner }));
 }
 const STORAGE_KEY = "photocards-v2";
+const CUSTOM_LISTS_KEY = "photocards-lists-v1";
 const DEFAULT_CATEGORIES = ["Regular", "POB", "Merch", "Broadcast", "Fansign", "Season's Greetings", "Membership"];
 const HARDCODED_SOURCES = [
   "ALBUM",
@@ -733,6 +734,8 @@ function PhotocardTracker({ isOwner = true } = {}) {
   const [customEnd, setCustomEnd] = useState("");
   const [statsCardFilter, setStatsCardFilter] = useState(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [customSources, setCustomSources] = useState(HARDCODED_SOURCES);
+  const [customCategories, setCustomCategories] = useState(DEFAULT_CATEGORIES);
   useEffect(() => {
     if (modalMode) {
       const raf = requestAnimationFrame(() => setDrawerVisible(true));
@@ -781,6 +784,31 @@ function PhotocardTracker({ isOwner = true } = {}) {
       }
     })();
   }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storage.get(CUSTOM_LISTS_KEY, false);
+        if (res && res.value) {
+          const parsed = JSON.parse(res.value);
+          setCustomSources(parsed.sources || HARDCODED_SOURCES);
+          setCustomCategories(parsed.categories || DEFAULT_CATEGORIES);
+        } else {
+          await storage.set(CUSTOM_LISTS_KEY, JSON.stringify({ sources: HARDCODED_SOURCES, categories: DEFAULT_CATEGORIES }), false);
+        }
+      } catch (e) {
+        try {
+          await storage.set(CUSTOM_LISTS_KEY, JSON.stringify({ sources: HARDCODED_SOURCES, categories: DEFAULT_CATEGORIES }), false);
+        } catch (e2) {
+        }
+      }
+    })();
+  }, []);
+  async function persistCustomLists(sources, categories2) {
+    try {
+      await storage.set(CUSTOM_LISTS_KEY, JSON.stringify({ sources, categories: categories2 }), false);
+    } catch (e) {
+    }
+  }
   const persist = useCallback(async (next) => {
     try {
       await storage.set(STORAGE_KEY, JSON.stringify(next), false);
@@ -804,18 +832,24 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }, [cards]);
   const sourceUsage = useMemo(() => {
     const map = {};
+    customSources.forEach((s) => {
+      map[s] = 0;
+    });
     cards.forEach((c) => {
       if (c.source) map[c.source] = (map[c.source] || 0) + 1;
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [cards]);
+  }, [cards, customSources]);
   const categoryUsage = useMemo(() => {
     const map = {};
+    customCategories.forEach((c) => {
+      map[c] = 0;
+    });
     cards.forEach((c) => {
       if (c.category) map[c.category] = (map[c.category] || 0) + 1;
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [cards]);
+  }, [cards, customCategories]);
   const versionTagUsage = useMemo(() => {
     const map = {};
     cards.forEach((c) => toTags(c.versionDetail).forEach((t) => {
@@ -837,6 +871,15 @@ function PhotocardTracker({ isOwner = true } = {}) {
     }
     setCards(next);
     await persist(next);
+    if (field === "source") {
+      const nextSources = [...new Set(customSources.map((s) => s === oldVal ? newVal : s))];
+      setCustomSources(nextSources);
+      await persistCustomLists(nextSources, customCategories);
+    } else if (field === "category") {
+      const nextCategories = [...new Set(customCategories.map((c) => c === oldVal ? newVal : c))];
+      setCustomCategories(nextCategories);
+      await persistCustomLists(customSources, nextCategories);
+    }
     setToast(`Renamed "${oldVal}" to "${newVal}".`);
     setTimeout(() => setToast(""), 2500);
   }
@@ -854,21 +897,32 @@ function PhotocardTracker({ isOwner = true } = {}) {
     }
     setCards(next);
     await persist(next);
+    if (field === "source") {
+      const nextSources = customSources.filter((s) => s !== val);
+      setCustomSources(nextSources);
+      await persistCustomLists(nextSources, customCategories);
+    } else if (field === "category") {
+      const nextCategories = customCategories.filter((c) => c !== val);
+      setCustomCategories(nextCategories);
+      await persistCustomLists(customSources, nextCategories);
+    }
     setToast(`Deleted "${val}".`);
     setTimeout(() => setToast(""), 2500);
   }
   const categories = useMemo(() => {
-    const existing = new Set(cards.map((c) => c.category).filter(Boolean));
-    DEFAULT_CATEGORIES.forEach((c) => existing.add(c));
+    const existing = new Set(customCategories);
+    cards.forEach((c) => {
+      if (c.category) existing.add(c.category);
+    });
     return [...existing].sort();
-  }, [cards]);
+  }, [cards, customCategories]);
   const sourceOptions = useMemo(() => {
-    const all = new Set(HARDCODED_SOURCES);
+    const all = new Set(customSources);
     cards.forEach((c) => {
       if (c.source) all.add(c.source);
     });
     return [...all].sort();
-  }, [cards]);
+  }, [cards, customSources]);
   const versionDetailOptions = useMemo(() => {
     const set = /* @__PURE__ */ new Set();
     cards.forEach((c) => toTags(c.versionDetail).forEach((t) => set.add(t)));
