@@ -200,10 +200,7 @@ const SOLD_COLOR = "#6B6470";
 const STATUSES = [
   { value: "Unowned", color: "#5B6472" },
   { value: "Wishlist", color: "#8B8FC9" },
-  { value: "OTW", color: "#E3A34A" },
-  { value: "WTB", color: "#6E9FA0" },
-  { value: "WTT", color: "#9B7EBD" },
-  { value: "WTS", color: "#D98B72" },
+  { value: "Purchased", color: "#E3A34A" },
   { value: "Owned", color: OWNED_COLOR },
   { value: "Sold", color: SOLD_COLOR }
 ];
@@ -851,7 +848,19 @@ function PhotocardTracker({ isOwner = true } = {}) {
       try {
         const res = await storage.get(STORAGE_KEY, false);
         if (res && res.value) {
-          setCards(JSON.parse(res.value));
+          const parsed = JSON.parse(res.value);
+          let statusMigrated = false;
+          const withMigratedStatus = parsed.map((c) => {
+            if (c.status === "OTW") {
+              statusMigrated = true;
+              return { ...c, status: "Purchased" };
+            }
+            return c;
+          });
+          setCards(withMigratedStatus);
+          if (statusMigrated) {
+            await storage.set(STORAGE_KEY, JSON.stringify(withMigratedStatus), false);
+          }
         } else {
           try {
             const old = await storage.get("photocards-v1", false);
@@ -1391,7 +1400,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
   function openAdd() {
     const defaultGroup = mostCommon(cards.map((c) => c.group));
     const defaultMember = mostCommon(cards.filter((c) => c.group === defaultGroup).map((c) => c.member));
-    setForm({ ...emptyForm, group: defaultGroup, member: defaultMember, copies: [] });
+    setForm({ ...emptyForm, group: defaultGroup, member: defaultMember, itemType: "Photocard", copies: [] });
     setEditingId(null);
     setModalMode("add");
   }
@@ -1763,7 +1772,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
           crop: form.imageCrop,
           onChange: (c) => setForm((f) => ({ ...f, imageCrop: c }))
         }
-      )), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Release / Collection", value: form.album, options: formAlbums, placeholder: "New release/collection name", onChange: handleAlbumChange }), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Item Type", value: form.itemType, options: itemTypeOptions, placeholder: "e.g. Photocard", onChange: (v) => setForm((f) => ({ ...f, itemType: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Product / Format", value: form.productFormat, options: productFormatOptions, placeholder: "e.g. POCA Album", onChange: (v) => setForm((f) => ({ ...f, productFormat: v })) })), /* @__PURE__ */ React.createElement(TagMultiSelect, { label: "Version / edition", values: toTags(form.versionDetail), options: versionDetailOptions, onChange: (v) => setForm((f) => ({ ...f, versionDetail: v })), placeholder: "e.g. Lucky Draw, 3.0, Exclusive" }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Source / Retailer / Partner", value: form.source, options: sourceOptions, placeholder: "New source name", onChange: (v) => setForm((f) => ({ ...f, source: v })) }), (form.source || toTags(form.versionDetail).length > 0) && /* @__PURE__ */ React.createElement("p", { className: "text-xs -mt-1.5", style: { color: theme.muted } }, "\u2192 ", versionName(form) || "\u2014"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Card Type / Benefit", value: form.category, options: categories, placeholder: "e.g. POB, Lucky Draw", onChange: (v) => setForm((f) => ({ ...f, category: v })) }), /* @__PURE__ */ React.createElement(Field, { label: "Date released" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.releaseDate, onChange: (e) => setForm((f) => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Character Series", value: form.characterSeries, options: characterSeriesOptions, placeholder: "Optional", onChange: (v) => setForm((f) => ({ ...f, characterSeries: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Character", value: form.character, options: formCharacterOptions, placeholder: "Optional", onChange: (v) => setForm((f) => ({ ...f, character: v })) })), /* @__PURE__ */ React.createElement(Field, { label: "Status" }, /* @__PURE__ */ React.createElement("select", { value: form.status, onChange: (e) => setForm((f) => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }, STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value)))), /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-2 text-sm cursor-pointer" }, /* @__PURE__ */ React.createElement(
+      )), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Release / Collection", value: form.album, options: formAlbums, placeholder: "Album/Collection name", onChange: handleAlbumChange }), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Item Type", value: form.itemType, options: itemTypeOptions, placeholder: "e.g. Photocard", onChange: (v) => setForm((f) => ({ ...f, itemType: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Product / Format", value: form.productFormat, options: productFormatOptions, placeholder: "e.g. POCA Album", onChange: (v) => setForm((f) => ({ ...f, productFormat: v })) })), /* @__PURE__ */ React.createElement(TagMultiSelect, { label: "Version / edition", values: toTags(form.versionDetail), options: versionDetailOptions, onChange: (v) => setForm((f) => ({ ...f, versionDetail: v })), placeholder: "e.g. Lucky Draw, 3.0, Exclusive" }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Source / Retailer / Partner", value: form.source, options: sourceOptions, placeholder: "New source name", onChange: (v) => setForm((f) => ({ ...f, source: v })) }), (form.source || toTags(form.versionDetail).length > 0) && /* @__PURE__ */ React.createElement("p", { className: "text-xs -mt-1.5", style: { color: theme.muted } }, "\u2192 ", versionName(form) || "\u2014"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Card Type / Benefit", value: form.category, options: categories, placeholder: "e.g. POB, Lucky Draw", onChange: (v) => setForm((f) => ({ ...f, category: v })) }), /* @__PURE__ */ React.createElement(Field, { label: "Date released" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: form.releaseDate, onChange: (e) => setForm((f) => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }))), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2" }, /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Character Series", value: form.characterSeries, options: characterSeriesOptions, placeholder: "Optional", onChange: (v) => setForm((f) => ({ ...f, characterSeries: v })) }), /* @__PURE__ */ React.createElement(SelectOrNew, { label: "Character", value: form.character, options: formCharacterOptions, placeholder: "Optional", onChange: (v) => setForm((f) => ({ ...f, character: v })) })), /* @__PURE__ */ React.createElement(Field, { label: "Status" }, /* @__PURE__ */ React.createElement("select", { value: form.status, onChange: (e) => setForm((f) => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }, STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value)))), /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-2 text-sm cursor-pointer" }, /* @__PURE__ */ React.createElement(
         "input",
         {
           type: "checkbox",
