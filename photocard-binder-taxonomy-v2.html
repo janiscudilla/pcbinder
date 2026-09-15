@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Photocard Binder</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<style>
+  html, body, #root { height: 100%; margin: 0; background: #17121A; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+const firebaseConfig = {
+  apiKey: "AIzaSyC19F2ZKmvCbvK8sGFt6q-QqpRl4JqbDQs",
+  authDomain: "photocard-binder.firebaseapp.com",
+  projectId: "photocard-binder",
+  storageBucket: "photocard-binder.firebasestorage.app",
+  messagingSenderId: "266968312169",
+  appId: "1:266968312169:web:a3f4412fe0c1dd16c635f8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const OWNER_UID = "Trl5kcfGpsdtCg2EdCC4UiCw3973";
+const storage = {
+  async get(key) {
+    const doc = await db.collection("kv").doc(key).get();
+    if (!doc.exists) throw new Error("not found");
+    return { key, value: doc.data().value };
+  },
+  async set(key, value) {
+    await db.collection("kv").doc(key).set({ value });
+    return { key, value };
+  }
+};
+function Icon({ children, size = 16, ...props }) {
+  return /* @__PURE__ */ React.createElement(
+    "svg",
+    {
+      width: size,
+      height: size,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      style: { display: "inline-block", verticalAlign: "middle" },
+      ...props
+    },
+    children
+  );
+}
+const Search = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "7" }), /* @__PURE__ */ React.createElement("line", { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }));
+const Plus = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "5", x2: "12", y2: "19" }), /* @__PURE__ */ React.createElement("line", { x1: "5", y1: "12", x2: "19", y2: "12" }));
+const X = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("line", { x1: "18", y1: "6", x2: "6", y2: "18" }), /* @__PURE__ */ React.createElement("line", { x1: "6", y1: "6", x2: "18", y2: "18" }));
+const Pencil = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M12 20h9" }), /* @__PURE__ */ React.createElement("path", { d: "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" }));
+const Trash2 = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("polyline", { points: "3 6 5 6 21 6" }), /* @__PURE__ */ React.createElement("path", { d: "M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" }), /* @__PURE__ */ React.createElement("path", { d: "M10 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M14 11v6" }), /* @__PURE__ */ React.createElement("path", { d: "M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" }));
+const ImageIcon = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("circle", { cx: "9", cy: "9", r: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M21 15l-5-5L5 21" }));
+const Download = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "7 10 12 15 17 10" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "15", x2: "12", y2: "3" }));
+const Upload = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }), /* @__PURE__ */ React.createElement("polyline", { points: "17 8 12 3 7 8" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "3", x2: "12", y2: "15" }));
+const ChevronDown = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }));
+const RotateCcw = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("polyline", { points: "1 4 1 10 7 10" }), /* @__PURE__ */ React.createElement("path", { d: "M3.51 15a9 9 0 1 0 2.13-9.36L1 10" }));
+const LogInOut = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" }), /* @__PURE__ */ React.createElement("polyline", { points: "16 17 21 12 16 7" }), /* @__PURE__ */ React.createElement("line", { x1: "21", y1: "12", x2: "9", y2: "12" }));
+const Settings = (p) => /* @__PURE__ */ React.createElement(Icon, { ...p }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" }));
+function AppShell() {
+  const [user, setUser] = useState(void 0);
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((u) => setUser(u));
+    return unsub;
+  }, []);
+  async function handleSignIn() {
+    try {
+      await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    } catch (err) {
+    }
+  }
+  const isOwner = !!(user && user.uid === OWNER_UID);
+  return /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", top: 10, right: 10, zIndex: 40 } }, user !== void 0 && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: isOwner ? () => auth.signOut() : handleSignIn,
+      title: isOwner ? "Sign out" : "Sign in",
+      style: {
+        width: 30,
+        height: 30,
+        borderRadius: "50%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: isOwner ? "rgba(227,163,74,0.15)" : "rgba(43,34,47,0.55)",
+        border: `1px solid ${isOwner ? "rgba(227,163,74,0.4)" : "#3A2F3E"}`,
+        color: isOwner ? "#E3A34A" : "#9C8FA0"
+      }
+    },
+    /* @__PURE__ */ React.createElement(LogInOut, { size: 14 })
+  )), /* @__PURE__ */ React.createElement(PhotocardTracker, { isOwner }));
+}
+const STORAGE_KEY = 'photocards-v2';
+const CUSTOM_LISTS_KEY = 'photocards-lists-v2';
+const LEGACY_CUSTOM_LISTS_KEY = 'photocards-lists-v1';
+const DEFAULT_CATEGORIES = [
+    'Album Inclusion', 'POB', 'Lucky Draw', 'Holo Benefit', 'Venue Limited', 'Fansign',
+    'Video Call / Fancall', 'Broadcast', 'Retail Exclusive', 'Pop-up Benefit', 'Merch Inclusion',
+    'Membership Exclusive', 'Japan Fan Club Exclusive', 'Tour / Concert Benefit',
+    'Fanmeeting Benefit', 'Collaboration Benefit', 'Special Event', 'Other',
+];
+const HARDCODED_SOURCES = [
+    'ATEEZ Official / KQ', 'Japan Fan Club', 'Synnara', 'Music Korea', 'Music Art', 'WithDrama',
+    'YES24', 'HELLO82', 'MMT / MyMusicTaste', 'KTOWN4U', 'Mokketshop', 'Everline', 'KPOPSTORE',
+    'Wonderwall', 'Makestar', 'Apple Music', 'Soundwave', 'WithMUU', 'DearMyMuse', 'Target', 'Walmart',
+    'Barnes & Noble', 'TOKTOQ', 'HMV Japan', 'Rakuten Japan', 'Tower Records Japan', 'EMART',
+    'Jump Up Ent', 'HELLOLIVE', 'FNAC', 'Nacific', 'DICON', 'Pott', 'Silent Soul', 'HIGHER',
+].sort();
+const DEFAULT_ITEM_TYPES = [
+    'Photocard', 'ID Photo', 'Postcard', 'Photo Set', 'Polaroid', 'Trading Card', 'Sticker',
+    'Film Photo', 'Bookmark', 'Mini Poster', 'Other',
+];
+const DEFAULT_PRODUCT_FORMATS = [
+    'Photobook Album', 'POCA / Platform Album', 'Digipak', 'Jewel Case', 'CD Player Album',
+    'Vinyl / LP', 'Photobook', "Season's Greetings", 'Membership Kit', 'Japan Fan Club Membership',
+    'DVD / Blu-ray', 'Birthday MD', 'Tour / Concert Merch', 'Fanmeeting Merch', 'Pop-up Merch',
+    'Character Merch', 'Official Merch / MD', 'Collaboration Product', 'Trading Card / Photocard Pack',
+    'Photo Set', 'ID Photo Set', 'HIGHER TIMEPIECE', 'Other',
+];
+const DEFAULT_VERSIONS = [
+    '1.0', '2.0', '3.0', '1', '2', '3', 'A', 'Z', 'Diary', 'Red', 'Pink', 'Limited',
+    'Standard', 'Exclusive', 'Hongjoong', 'Seonghwa', 'Yunho', 'Yeosang', 'San', 'Mingi', 'Wooyoung', 'Jongho',
+];
+const DEFAULT_CHARACTER_SERIES = ['ANITEEZ', 'MIGHTEEZ', 'Birthday Characters'];
+const DEFAULT_CHARACTERS = [
+    'Jjoongrami', 'Ddeongbyeoli', 'Tyudeongi', 'Hetmongi', 'Sandeoki', 'Bbyongming', 'Wooyonyang', 'Jjongbear',
+    'Hongyo', 'Ddeongyo', 'Tyuyo', 'Ddangyo', 'Saniyo', 'Mingyo', 'Kkamyo', 'Jjongyo',
+    'Hoi', 'Silbeoni', 'Pudeongi', 'Hehetmon', 'Sandeongi', 'Mingtteok', 'Wooyeowoo', 'Jjongdoli',
+];
+const OWNED_COLOR = '#7FA687';
+const SOLD_COLOR = '#6B6470';
+const STATUSES = [
+    { value: 'Unowned', color: '#5B6472' },
+    { value: 'Wishlist', color: '#8B8FC9' },
+    { value: 'OTW', color: '#E3A34A' },
+    { value: 'WTB', color: '#6E9FA0' },
+    { value: 'WTT', color: '#9B7EBD' },
+    { value: 'WTS', color: '#D98B72' },
+    { value: 'Owned', color: OWNED_COLOR },
+    { value: 'Sold', color: SOLD_COLOR },
+];
+const theme = {
+    bg: '#17121A',
+    surface: '#211A24',
+    surfaceAlt: '#2B222F',
+    border: '#3A2F3E',
+    text: '#F3ECE3',
+    muted: '#9C8FA0',
+    accent: '#E3A34A',
+};
+const emptyForm = {
+    group: '', member: '', album: '', era: '', itemType: 'Photocard', productFormat: '',
+    category: '', releaseDate: '', source: '', versionDetail: [], characterSeries: '', character: '',
+    status: 'Unowned', frontImage: '', backImage: '', dateSold: '', notes: '', copies: [],
+    imageCrop: null,
+};
+function toTags(v) {
+    if (Array.isArray(v))
+        return v;
+    if (v)
+        return [v];
+    return [];
+}
+// Crop box aspect ratio the card frame displays at (55:85, real photocard proportions), used only
+// as a starting suggestion — the crop itself is freeform and does not have to match this.
+const CROP_RATIO = 85 / 55;
+// A sensible centered crop box (in natural pixel units) for an image whose crop hasn't been set yet.
+function defaultCropFor(natW, natH) {
+    const w = Math.min(natW, natH / CROP_RATIO);
+    const h = w * CROP_RATIO;
+    return { x: (natW - w) / 2, y: (natH - h) / 2, w, h };
+}
+function clampNum(v, min, max) { return Math.max(min, Math.min(max, v)); }
+// Computes a new crop box after dragging one of the 8 handles by (dxPx, dyPx) natural pixels.
+// Freeform: each handle moves only the edge(s) it touches; the box's aspect ratio is not locked.
+function resizeCropBox(handleId, start, dxPx, dyPx, natW, natH) {
+    const MIN = Math.min(natW, natH) * 0.05;
+    const { x, y, w, h } = start;
+    let nx = x, ny = y, nw = w, nh = h;
+    switch (handleId) {
+        case 'tl': {
+            const bx = x + w, by = y + h;
+            nw = w - dxPx;
+            nh = h - dyPx;
+            nx = bx - nw;
+            ny = by - nh;
+            break;
+        }
+        case 'tr': {
+            const by = y + h;
+            nw = w + dxPx;
+            nh = h - dyPx;
+            ny = by - nh;
+            break;
+        }
+        case 'bl': {
+            const bx = x + w;
+            nw = w - dxPx;
+            nh = h + dyPx;
+            nx = bx - nw;
+            break;
+        }
+        case 'br': {
+            nw = w + dxPx;
+            nh = h + dyPx;
+            break;
+        }
+        case 'top': {
+            const by = y + h;
+            nh = h - dyPx;
+            ny = by - nh;
+            break;
+        }
+        case 'bottom': {
+            nh = h + dyPx;
+            break;
+        }
+        case 'left': {
+            const bx = x + w;
+            nw = w - dxPx;
+            nx = bx - nw;
+            break;
+        }
+        case 'right': {
+            nw = w + dxPx;
+            break;
+        }
+        default: break;
+    }
+    nw = clampNum(nw, MIN, natW);
+    nh = clampNum(nh, MIN, natH);
+    nx = clampNum(nx, 0, natW - nw);
+    ny = clampNum(ny, 0, natH - nh);
+    return { x: nx, y: ny, w: nw, h: nh };
+}
+// Renders an image cropped to a natural-pixel box (or a sensible default), using pure CSS
+// percentages so it works at any container size without measuring layout. If the crop's own
+// shape doesn't match the display frame, it's letterboxed (never stretched/distorted).
+function CroppedImage({ src, crop, style, onError }) {
+    const [nat, setNat] = useState(null);
+    function handleLoad(e) {
+        setNat({ w: e.target.naturalWidth, h: e.target.naturalHeight });
+    }
+    let imgStyle = { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' };
+    if (nat) {
+        const c = (crop && crop.w) ? crop : defaultCropFor(nat.w, nat.h);
+        const containerAspect = 55 / 85; // width / height
+        const cropAspect = c.w / c.h;
+        const r = cropAspect / containerAspect;
+        const cropWPct = Math.min(1, r) * 100;
+        const cropHPct = Math.min(1, 1 / r) * 100;
+        imgStyle = {
+            position: 'absolute',
+            width: `${cropWPct * (nat.w / c.w)}%`,
+            height: `${cropHPct * (nat.h / c.h)}%`,
+            left: `${(100 - cropWPct) / 2 - (c.x / c.w) * cropWPct}%`,
+            top: `${(100 - cropHPct) / 2 - (c.y / c.h) * cropHPct}%`,
+            maxWidth: 'none',
+        };
+    }
+    return (React.createElement("img", { src: src, alt: "", loading: "lazy", onLoad: handleLoad, onError: onError, style: { ...imgStyle, ...style } }));
+}
+function versionName(card) {
+    return [card.productFormat, ...toTags(card.versionDetail), card.source, card.category].filter(Boolean).join(' · ').trim();
+}
+function resolveImageUrl(url) {
+    if (!url)
+        return '';
+    const trimmed = url.trim();
+    if (trimmed.startsWith('data:'))
+        return trimmed;
+    const fileMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileMatch)
+        return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1000`;
+    const openMatch = trimmed.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+    if (openMatch)
+        return `https://drive.google.com/thumbnail?id=${openMatch[1]}&sz=w1000`;
+    const ucMatch = trimmed.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+    if (ucMatch)
+        return `https://drive.google.com/thumbnail?id=${ucMatch[1]}&sz=w1000`;
+    return trimmed;
+}
+function fileToCompressedDataUrl(file, maxDim = 700, quality = 0.75) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > height && width > maxDim) {
+                    height = Math.round(height * (maxDim / width));
+                    width = maxDim;
+                }
+                else if (height >= width && height > maxDim) {
+                    width = Math.round(width * (maxDim / height));
+                    height = maxDim;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+function parsePrice(str) {
+    if (!str)
+        return 0;
+    const match = String(str).match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : 0;
+}
+function sumSpent(card) {
+    return (card.copies || []).reduce((sum, c) => sum + parsePrice(c.price), 0);
+}
+// Copy dates are stored as "YYYY", "YYYY-MM", or "YYYY-MM-DD" — the string length
+// itself tells us how precisely the user actually knows the date.
+function getDatePrecision(dateStr) {
+    if (!dateStr)
+        return null;
+    if (dateStr.length === 4)
+        return 'year';
+    if (dateStr.length === 7)
+        return 'month';
+    if (dateStr.length >= 10)
+        return 'day';
+    return null;
+}
+function copyDateRange(dateStr) {
+    const precision = getDatePrecision(dateStr);
+    if (precision === 'day')
+        return [dateStr.slice(0, 10), dateStr.slice(0, 10)];
+    if (precision === 'month') {
+        const [y, m] = dateStr.split('-');
+        const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
+        return [`${dateStr}-01`, `${dateStr}-${pad2(lastDay)}`];
+    }
+    if (precision === 'year')
+        return [`${dateStr}-01-01`, `${dateStr}-12-31`];
+    return [null, null];
+}
+function periodBoundsFor(period, customStart, customEnd) {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    const monthStr = todayStr.slice(0, 7);
+    const yearStr = String(now.getFullYear());
+    if (period === 'today')
+        return { type: 'day', value: todayStr, label: formatFlexDate(todayStr) };
+    if (period === 'month')
+        return { type: 'month', value: monthStr, label: formatFlexDate(monthStr) };
+    if (period === 'year')
+        return { type: 'year', value: yearStr, label: yearStr };
+    if (period === 'custom') {
+        const s = customStart || '0001-01-01';
+        const e = customEnd || '9999-12-31';
+        const label = (customStart && customEnd) ? `${formatFlexDate(customStart)} – ${formatFlexDate(customEnd)}` : 'Pick a range below';
+        return { type: 'range', start: s, end: e, label };
+    }
+    return { type: 'all', label: 'All time' };
+}
+// Respects precision: a "2026" purchase never counts as belonging to a specific
+// day or month, only to that year (and All Time / a range that covers it).
+function copyMatchesPeriod(copy, bounds) {
+    if (!copy || !copy.date)
+        return false;
+    const precision = getDatePrecision(copy.date);
+    if (!precision)
+        return false;
+    if (bounds.type === 'all')
+        return true;
+    if (bounds.type === 'day')
+        return precision === 'day' && copy.date === bounds.value;
+    if (bounds.type === 'month')
+        return precision !== 'year' && copy.date.slice(0, 7) === bounds.value;
+    if (bounds.type === 'year')
+        return copy.date.slice(0, 4) === bounds.value;
+    if (bounds.type === 'range') {
+        const [minD, maxD] = copyDateRange(copy.date);
+        if (!minD)
+            return false;
+        return minD <= bounds.end && maxD >= bounds.start;
+    }
+    return false;
+}
+function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+function mostCommon(arr) {
+    const counts = {};
+    arr.forEach(v => { if (v)
+        counts[v] = (counts[v] || 0) + 1; });
+    let best = '', bestCount = 0;
+    Object.entries(counts).forEach(([k, c]) => { if (c > bestCount) {
+        best = k;
+        bestCount = c;
+    } });
+    return best;
+}
+function isOwned(card) {
+    return card.status === 'Owned';
+}
+function cardBadge(card) {
+    if (!card.status || card.status === 'Unowned')
+        return null;
+    const s = STATUSES.find(s => s.value === card.status);
+    return { label: card.status, color: s ? s.color : theme.muted };
+}
+function Field({ label, children }) {
+    return (React.createElement("label", { className: "block" },
+        React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label),
+        children));
+}
+function ImageField({ label, value, onChange }) {
+    const [busy, setBusy] = useState(false);
+    async function handleFile(e) {
+        const file = e.target.files[0];
+        if (!file)
+            return;
+        setBusy(true);
+        try {
+            const dataUrl = await fileToCompressedDataUrl(file);
+            onChange(dataUrl);
+        }
+        catch (err) {
+            // ignore — leave existing value in place
+        }
+        finally {
+            setBusy(false);
+            e.target.value = '';
+        }
+    }
+    const isUpload = value && value.startsWith('data:');
+    return (React.createElement("label", { className: "block" },
+        React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label),
+        isUpload ? (React.createElement("div", { className: "flex items-center gap-2 p-1.5 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+            React.createElement("img", { src: value, alt: "", className: "w-10 h-14 object-cover rounded shrink-0" }),
+            React.createElement("span", { className: "text-xs flex-1", style: { color: theme.muted } }, "Photo uploaded (test only)"),
+            React.createElement("button", { type: "button", onClick: () => onChange(''), className: "text-xs px-2 py-1 rounded shrink-0", style: { color: '#D98B72' } }, "Remove"))) : (React.createElement("div", { className: "space-y-1.5" },
+            React.createElement("input", { value: value, onChange: e => onChange(e.target.value), placeholder: "Paste a link (Drive, Pinterest, Canva)", className: "w-full px-2.5 py-2 rounded-lg text-sm" }),
+            React.createElement("label", { className: "inline-flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.accent } },
+                React.createElement(Upload, { size: 12 }),
+                " ",
+                busy ? 'Processing photo...' : 'or upload a photo',
+                React.createElement("input", { type: "file", accept: "image/*", onChange: handleFile, className: "hidden" }))))));
+}
+function SelectOrNew({ label, value, options, onChange, placeholder, compact }) {
+    const [query, setQuery] = useState(value || '');
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef(null);
+    useEffect(() => { setQuery(value || ''); }, [value]);
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (wrapRef.current && !wrapRef.current.contains(e.target))
+                setOpen(false);
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+    const filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
+    const exactMatch = options.some(o => o.toLowerCase() === query.trim().toLowerCase());
+    function selectValue(v) {
+        onChange(v);
+        setQuery(v);
+        setOpen(false);
+    }
+    const inputEl = (React.createElement("input", { value: query, onChange: e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }, onFocus: () => setOpen(true), placeholder: placeholder, className: compact ? 'w-full px-2 py-1.5 rounded text-xs' : 'w-full px-2.5 py-2 rounded-lg text-sm' }));
+    return (React.createElement("div", { ref: wrapRef, style: { position: 'relative' } },
+        label ? (React.createElement("label", { className: "block" },
+            React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label),
+            inputEl)) : inputEl,
+        open && (filtered.length > 0 || query.trim()) && (React.createElement("div", { className: "absolute left-0 right-0 mt-1 rounded-lg overflow-y-auto pc-scroll z-20", style: { maxHeight: 180, background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+            filtered.map(o => (React.createElement("button", { key: o, type: "button", onClick: () => selectValue(o), className: "block w-full text-left px-3 py-2 text-sm", style: { borderBottom: `1px solid ${theme.border}` } }, o))),
+            query.trim() && !exactMatch && (React.createElement("button", { type: "button", onClick: () => selectValue(query.trim()), className: "block w-full text-left px-3 py-2 text-sm font-medium", style: { color: theme.accent } },
+                "+ Add \"",
+                query.trim(),
+                "\""))))));
+}
+function ImageCropper({ src, crop, onChange }) {
+    const [nat, setNat] = useState(null);
+    const containerRef = useRef(null);
+    const dragRef = useRef(null);
+    const DISPLAY_W = 260;
+    function handleImgLoad(e) {
+        const w = e.target.naturalWidth, h = e.target.naturalHeight;
+        setNat({ w, h });
+        if (!crop || !crop.w)
+            onChange(defaultCropFor(w, h));
+    }
+    function handleMove(e) {
+        const d = dragRef.current;
+        if (!d || !nat)
+            return;
+        const dxPx = (e.clientX - d.startClientX) / d.scale;
+        const dyPx = (e.clientY - d.startClientY) / d.scale;
+        if (d.mode === 'pan') {
+            const newX = clampNum(d.start.x + dxPx, 0, nat.w - d.start.w);
+            const newY = clampNum(d.start.y + dyPx, 0, nat.h - d.start.h);
+            onChange({ x: newX, y: newY, w: d.start.w, h: d.start.h });
+        }
+        else {
+            onChange(resizeCropBox(d.mode, d.start, dxPx, dyPx, nat.w, nat.h));
+        }
+    }
+    function handleUp() {
+        dragRef.current = null;
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleUp);
+    }
+    function startDrag(mode, e, c, scale) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragRef.current = { mode, startClientX: e.clientX, startClientY: e.clientY, start: { x: c.x, y: c.y, w: c.w, h: c.h }, scale };
+        window.addEventListener('pointermove', handleMove);
+        window.addEventListener('pointerup', handleUp);
+    }
+    if (!nat) {
+        return (React.createElement("div", { style: { width: DISPLAY_W, maxWidth: '100%', margin: '0 auto' } },
+            React.createElement("img", { src: src, alt: "", onLoad: handleImgLoad, style: { width: '100%', opacity: 0, display: 'block' } }),
+            React.createElement("p", { className: "text-[10px] text-center mt-1", style: { color: theme.muted } }, "Loading image\u2026")));
+    }
+    const scale = DISPLAY_W / nat.w;
+    const displayH = nat.h * scale;
+    const c = (crop && crop.w) ? crop : defaultCropFor(nat.w, nat.h);
+    const box = { left: c.x * scale, top: c.y * scale, width: c.w * scale, height: c.h * scale };
+    const overlay = 'rgba(0,0,0,0.55)';
+    const handleDefs = [
+        { id: 'tl', style: { top: -6, left: -6, width: 12, height: 12 }, cursor: 'nwse-resize' },
+        { id: 'tr', style: { top: -6, right: -6, width: 12, height: 12 }, cursor: 'nesw-resize' },
+        { id: 'bl', style: { bottom: -6, left: -6, width: 12, height: 12 }, cursor: 'nesw-resize' },
+        { id: 'br', style: { bottom: -6, right: -6, width: 12, height: 12 }, cursor: 'nwse-resize' },
+        { id: 'top', style: { top: -5, left: '50%', transform: 'translateX(-50%)', width: 28, height: 8 }, cursor: 'ns-resize' },
+        { id: 'bottom', style: { bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 28, height: 8 }, cursor: 'ns-resize' },
+        { id: 'left', style: { left: -5, top: '50%', transform: 'translateY(-50%)', width: 8, height: 28 }, cursor: 'ew-resize' },
+        { id: 'right', style: { right: -5, top: '50%', transform: 'translateY(-50%)', width: 8, height: 28 }, cursor: 'ew-resize' },
+    ];
+    return (React.createElement("div", null,
+        React.createElement("div", { ref: containerRef, style: { position: 'relative', width: DISPLAY_W, maxWidth: '100%', height: displayH, margin: '0 auto', borderRadius: 8, overflow: 'hidden', touchAction: 'none' } },
+            React.createElement("img", { src: src, alt: "", draggable: false, style: { width: '100%', height: '100%', display: 'block', userSelect: 'none' } }),
+            React.createElement("div", { style: { position: 'absolute', left: 0, top: 0, right: 0, height: box.top, background: overlay, pointerEvents: 'none' } }),
+            React.createElement("div", { style: { position: 'absolute', left: 0, top: box.top + box.height, right: 0, bottom: 0, background: overlay, pointerEvents: 'none' } }),
+            React.createElement("div", { style: { position: 'absolute', left: 0, top: box.top, width: box.left, height: box.height, background: overlay, pointerEvents: 'none' } }),
+            React.createElement("div", { style: { position: 'absolute', left: box.left + box.width, top: box.top, right: 0, height: box.height, background: overlay, pointerEvents: 'none' } }),
+            React.createElement("div", { onPointerDown: e => startDrag('pan', e, c, scale), style: { position: 'absolute', left: box.left, top: box.top, width: box.width, height: box.height, border: '2px dashed rgba(255,255,255,0.9)', cursor: 'grab' } }, handleDefs.map(h => (React.createElement("div", { key: h.id, onPointerDown: e => startDrag(h.id, e, c, scale), style: { position: 'absolute', background: 'rgba(255,255,255,0.35)', border: '1.5px solid rgba(255,255,255,0.9)', borderRadius: 3, cursor: h.cursor, ...h.style } }))))),
+        React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \u00B7 drag a handle to resize that side")));
+}
+function TagMultiSelect({ label, values, options, onChange, placeholder }) {
+    const [query, setQuery] = useState('');
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef(null);
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (wrapRef.current && !wrapRef.current.contains(e.target))
+                setOpen(false);
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+    const remaining = options.filter(o => !values.includes(o));
+    const filtered = remaining.filter(o => o.toLowerCase().includes(query.toLowerCase()));
+    const exactMatch = remaining.some(o => o.toLowerCase() === query.trim().toLowerCase());
+    function addTag(tag) {
+        const t = tag.trim();
+        if (!t || values.includes(t))
+            return;
+        onChange([...values, t]);
+        setQuery('');
+    }
+    function removeTag(tag) {
+        onChange(values.filter(v => v !== tag));
+    }
+    return (React.createElement("div", { ref: wrapRef, style: { position: 'relative' } },
+        React.createElement("label", { className: "block" },
+            React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label),
+            values.length > 0 && (React.createElement("div", { className: "flex flex-wrap gap-1.5 mb-1.5" }, values.map(v => (React.createElement("span", { key: v, className: "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                v,
+                React.createElement("button", { type: "button", onClick: () => removeTag(v), style: { color: theme.muted } },
+                    React.createElement(X, { size: 10 }))))))),
+            React.createElement("input", { value: query, onChange: e => { setQuery(e.target.value); setOpen(true); }, onFocus: () => setOpen(true), onKeyDown: e => { if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTag(query);
+                } }, placeholder: placeholder, className: "w-full px-2.5 py-2 rounded-lg text-sm" })),
+        open && (filtered.length > 0 || query.trim()) && (React.createElement("div", { className: "absolute left-0 right-0 mt-1 rounded-lg overflow-y-auto pc-scroll z-20", style: { maxHeight: 180, background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+            filtered.map(o => (React.createElement("button", { key: o, type: "button", onClick: () => addTag(o), className: "block w-full text-left px-3 py-2 text-sm", style: { borderBottom: `1px solid ${theme.border}` } }, o))),
+            query.trim() && !exactMatch && (React.createElement("button", { type: "button", onClick: () => addTag(query.trim()), className: "block w-full text-left px-3 py-2 text-sm font-medium", style: { color: theme.accent } },
+                "+ Add \"",
+                query.trim(),
+                "\""))))));
+}
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+// Dates are stored as plain strings using an ISO-style prefix: "" (unset), "YYYY",
+// "YYYY-MM", or "YYYY-MM-DD" — whichever precision the user actually knows.
+function parseFlexDate(v) {
+    if (!v)
+        return { year: '', month: '', day: '' };
+    const parts = v.split('-');
+    return { year: parts[0] || '', month: parts[1] || '', day: parts[2] || '' };
+}
+function formatFlexDate(v) {
+    if (!v)
+        return '';
+    const { year, month, day } = parseFlexDate(v);
+    const mi = parseInt(month, 10) - 1;
+    if (day && MONTH_NAMES[mi])
+        return `${MONTH_NAMES[mi]} ${parseInt(day, 10)}, ${year}`;
+    if (month && MONTH_NAMES[mi])
+        return `${MONTH_NAMES[mi]} ${year}`;
+    return year;
+}
+const MONTH_LOOKUP = {
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
+    may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8,
+    sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
+};
+function pad2(n) { return String(n).padStart(2, '0'); }
+// Accepts whatever precision the user actually knows, in several common forms, and
+// normalizes to a canonical "YYYY", "YYYY-MM", or "YYYY-MM-DD" string.
+function parseFreeformDate(text) {
+    if (!text)
+        return '';
+    const t = text.trim();
+    if (!t)
+        return '';
+    let m = t.match(/^(\d{4})$/);
+    if (m)
+        return m[1];
+    m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m)
+        return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+    m = t.match(/^(\d{4})-(\d{1,2})$/);
+    if (m)
+        return `${m[1]}-${pad2(m[2])}`;
+    m = t.match(/^(\d{1,2})[-/](\d{4})$/);
+    if (m) {
+        const mo = parseInt(m[1], 10);
+        if (mo >= 1 && mo <= 12)
+            return `${m[2]}-${pad2(mo)}`;
+    }
+    m = t.match(/^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (m) {
+        const mo = MONTH_LOOKUP[m[1].toLowerCase()];
+        if (mo)
+            return `${m[3]}-${pad2(mo)}-${pad2(m[2])}`;
+    }
+    m = t.match(/^([A-Za-z]+)\.?\s+(\d{4})$/);
+    if (m) {
+        const mo = MONTH_LOOKUP[m[1].toLowerCase()];
+        if (mo)
+            return `${m[2]}-${pad2(mo)}`;
+    }
+    // Couldn't confidently parse — keep the raw text so nothing typed is lost.
+    return t;
+}
+function FreeformDateInput({ value, onChange, compact }) {
+    const [draft, setDraft] = useState(value || '');
+    useEffect(() => { setDraft(value || ''); }, [value]);
+    function commit() {
+        const parsed = parseFreeformDate(draft);
+        setDraft(parsed);
+        onChange(parsed);
+    }
+    return (React.createElement("input", { type: "text", placeholder: "2026, 2026-01, Jan 2026, Jan 1 2026...", value: draft, onChange: e => setDraft(e.target.value), onBlur: commit, onKeyDown: e => { if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+            e.target.blur();
+        } }, className: compact ? 'w-full px-2 py-1.5 rounded text-xs' : 'w-full px-2.5 py-2 rounded-lg text-sm' }));
+}
+function ValueManagerSection({ title, usage, onRename, onDelete }) {
+    const [editingVal, setEditingVal] = useState(null);
+    const [editText, setEditText] = useState('');
+    if (usage.length === 0)
+        return null;
+    return (React.createElement("div", { className: "mb-5" },
+        React.createElement("h3", { className: "text-sm font-semibold mb-2" }, title),
+        React.createElement("div", { className: "space-y-1.5" }, usage.map(([val, count]) => (React.createElement("div", { key: val, className: "flex items-center gap-2 px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, editingVal === val ? (React.createElement(React.Fragment, null,
+            React.createElement("input", { autoFocus: true, value: editText, onChange: e => setEditText(e.target.value), className: "flex-1 min-w-0 px-2 py-1 rounded text-sm", style: { background: theme.surface, border: `1px solid ${theme.border}` } }),
+            React.createElement("button", { type: "button", onClick: () => { onRename(val, editText.trim()); setEditingVal(null); }, className: "text-xs font-medium shrink-0", style: { color: theme.accent } }, "Save"),
+            React.createElement("button", { type: "button", onClick: () => setEditingVal(null), className: "text-xs shrink-0", style: { color: theme.muted } }, "Cancel"))) : (React.createElement(React.Fragment, null,
+            React.createElement("span", { className: "flex-1 truncate" }, val),
+            React.createElement("span", { className: "text-xs shrink-0", style: { color: theme.muted } }, count),
+            React.createElement("button", { type: "button", onClick: () => { setEditingVal(val); setEditText(val); }, className: "shrink-0", style: { color: theme.muted } },
+                React.createElement(Pencil, { size: 13 })),
+            React.createElement("button", { type: "button", onClick: () => onDelete(val), className: "shrink-0", style: { color: '#D98B72' } },
+                React.createElement(Trash2, { size: 13 }))))))))));
+}
+function DetailRow({ label, value }) {
+    if (!value)
+        return null;
+    return (React.createElement("div", null,
+        React.createElement("dt", { className: "text-[11px]", style: { color: theme.muted } }, label),
+        React.createElement("dd", null, value)));
+}
+function PhotocardTracker({ isOwner = true } = {}) {
+    const [cards, setCards] = useState([]);
+    const [loaded, setLoaded] = useState(false);
+    const [toast, setToast] = useState('');
+    const [search, setSearch] = useState('');
+    const [filterOwned, setFilterOwned] = useState('');
+    const [filterGroup, setFilterGroup] = useState('');
+    const [filterMember, setFilterMember] = useState('');
+    const [filterAlbum, setFilterAlbum] = useState('');
+    const [filterItemType, setFilterItemType] = useState('');
+    const [filterProductFormat, setFilterProductFormat] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterSource, setFilterSource] = useState('');
+    const [filterCharacterSeries, setFilterCharacterSeries] = useState('');
+    const [filterCharacter, setFilterCharacter] = useState('');
+    const [filterVersionTag, setFilterVersionTag] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterEra, setFilterEra] = useState('');
+    const [sortBy, setSortBy] = useState('recent');
+    const [visibleCount, setVisibleCount] = useState(60);
+    const [modalMode, setModalMode] = useState(null);
+    const [form, setForm] = useState(emptyForm);
+    const [editingId, setEditingId] = useState(null);
+    const [selectedCard, setSelectedCard] = useState(null);
+    const [detailSide, setDetailSide] = useState('front');
+    const [cropCard, setCropCard] = useState(null);
+    const [cropDraft, setCropDraft] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(() => new Set());
+    const [bulkOpen, setBulkOpen] = useState(false);
+    const [bulkForm, setBulkForm] = useState({ group: '', member: '', album: '', era: '', itemType: '', productFormat: '', source: '', versionDetail: [], category: '', characterSeries: '', character: '', releaseDate: '', status: '', dateSold: '', notes: '' });
+    const [drawerVisible, setDrawerVisible] = useState(false);
+    const [view, setView] = useState('main');
+    const [statsPeriod, setStatsPeriod] = useState('month');
+    const [customStart, setCustomStart] = useState('');
+    const [customEnd, setCustomEnd] = useState('');
+    const [statsCardFilter, setStatsCardFilter] = useState(null);
+    const [manageOpen, setManageOpen] = useState(false);
+    const [manageDrawerVisible, setManageDrawerVisible] = useState(false);
+    const [customSources, setCustomSources] = useState(HARDCODED_SOURCES);
+    const [customCategories, setCustomCategories] = useState(DEFAULT_CATEGORIES);
+    const [customItemTypes, setCustomItemTypes] = useState(DEFAULT_ITEM_TYPES);
+    const [customProductFormats, setCustomProductFormats] = useState(DEFAULT_PRODUCT_FORMATS);
+    const [customVersions, setCustomVersions] = useState(DEFAULT_VERSIONS);
+    const [customCharacterSeries, setCustomCharacterSeries] = useState(DEFAULT_CHARACTER_SERIES);
+    const [customCharacters, setCustomCharacters] = useState(DEFAULT_CHARACTERS);
+    useEffect(() => {
+        if (modalMode) {
+            const raf = requestAnimationFrame(() => setDrawerVisible(true));
+            return () => cancelAnimationFrame(raf);
+        }
+    }, [modalMode]);
+    useEffect(() => {
+        if (manageOpen) {
+            const raf = requestAnimationFrame(() => setManageDrawerVisible(true));
+            return () => cancelAnimationFrame(raf);
+        }
+    }, [manageOpen]);
+    function closeManage() {
+        setManageDrawerVisible(false);
+        setTimeout(() => setManageOpen(false), 220);
+    }
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await window.storage.get(STORAGE_KEY, false);
+                if (res && res.value) {
+                    setCards(JSON.parse(res.value));
+                }
+                else {
+                    // migrate from the earlier version of this app, if present
+                    try {
+                        const old = await window.storage.get('photocards-v1', false);
+                        if (old && old.value) {
+                            const oldCards = JSON.parse(old.value);
+                            const migrated = oldCards.map(c => {
+                                const owned = ['Owned', 'Duplicate', 'Trading'].includes(c.status);
+                                return {
+                                    id: c.id, createdAt: c.createdAt,
+                                    group: c.group || '', member: c.member || '', album: '', era: c.era || '',
+                                    category: c.category || '', releaseDate: '',
+                                    status: owned ? 'Wishlist' : 'Wishlist',
+                                    frontImage: c.frontImage || '', backImage: c.backImage || '',
+                                    dateSold: '', notes: c.notes || '',
+                                    copies: owned ? [{ id: uid(), date: c.dateReceived || c.datePurchased || '', price: c.price || '', seller: c.seller || '' }] : [],
+                                };
+                            });
+                            setCards(migrated);
+                            await window.storage.set(STORAGE_KEY, JSON.stringify(migrated), false);
+                        }
+                    }
+                    catch (e2) {
+                        // nothing to migrate
+                    }
+                }
+            }
+            catch (e) {
+                // no saved data yet
+            }
+            finally {
+                setLoaded(true);
+            }
+        })();
+    }, []);
+    useEffect(() => {
+        (async () => {
+            try {
+                let parsed = null;
+                try {
+                    const res = await window.storage.get(CUSTOM_LISTS_KEY, false);
+                    if (res && res.value)
+                        parsed = JSON.parse(res.value);
+                }
+                catch (e) {
+                    // v2 list storage does not exist yet; migrate from v1 below
+                }
+                if (!parsed) {
+                    let legacy = {};
+                    try {
+                        const old = await window.storage.get(LEGACY_CUSTOM_LISTS_KEY, false);
+                        if (old && old.value)
+                            legacy = JSON.parse(old.value);
+                    }
+                    catch (e) {
+                        // no legacy list storage
+                    }
+                    parsed = {
+                        sources: [...new Set([...HARDCODED_SOURCES, ...(legacy.sources || [])])].sort(),
+                        categories: [...new Set([...DEFAULT_CATEGORIES, ...(legacy.categories || [])])].sort(),
+                        itemTypes: DEFAULT_ITEM_TYPES,
+                        productFormats: DEFAULT_PRODUCT_FORMATS,
+                        versions: DEFAULT_VERSIONS,
+                        characterSeries: DEFAULT_CHARACTER_SERIES,
+                        characters: DEFAULT_CHARACTERS,
+                    };
+                    await window.storage.set(CUSTOM_LISTS_KEY, JSON.stringify(parsed), false);
+                }
+                setCustomSources(parsed.sources || HARDCODED_SOURCES);
+                setCustomCategories(parsed.categories || DEFAULT_CATEGORIES);
+                setCustomItemTypes(parsed.itemTypes || DEFAULT_ITEM_TYPES);
+                setCustomProductFormats(parsed.productFormats || DEFAULT_PRODUCT_FORMATS);
+                setCustomVersions(parsed.versions || DEFAULT_VERSIONS);
+                setCustomCharacterSeries(parsed.characterSeries || DEFAULT_CHARACTER_SERIES);
+                setCustomCharacters(parsed.characters || DEFAULT_CHARACTERS);
+            }
+            catch (e) {
+                // storage unavailable — fall back to the defaults for this session
+            }
+        })();
+    }, []);
+    async function persistCustomLists(overrides = {}) {
+        try {
+            const payload = {
+                sources: customSources, categories: customCategories, itemTypes: customItemTypes,
+                productFormats: customProductFormats, versions: customVersions,
+                characterSeries: customCharacterSeries, characters: customCharacters,
+                ...overrides,
+            };
+            await window.storage.set(CUSTOM_LISTS_KEY, JSON.stringify(payload), false);
+        }
+        catch (e) {
+            // best-effort — the in-memory lists still update either way
+        }
+    }
+    const persist = useCallback(async (next) => {
+        try {
+            await window.storage.set(STORAGE_KEY, JSON.stringify(next), false);
+        }
+        catch (e) {
+            setToast('Save failed — this change may not survive closing the tab.');
+            setTimeout(() => setToast(''), 4000);
+        }
+    }, []);
+    const groups = useMemo(() => [...new Set(cards.map(c => c.group).filter(Boolean))].sort(), [cards]);
+    const eras = useMemo(() => [...new Set(cards.filter(c => !filterGroup || c.group === filterGroup).map(c => c.era).filter(Boolean))].sort(), [cards, filterGroup]);
+    const filterMembers = useMemo(() => [...new Set(cards.filter(c => !filterGroup || c.group === filterGroup).map(c => c.member).filter(Boolean))].sort(), [cards, filterGroup]);
+    const filterAlbums = useMemo(() => [...new Set(cards.filter(c => !filterGroup || c.group === filterGroup).map(c => c.album).filter(Boolean))].sort(), [cards, filterGroup]);
+    const allMembers = useMemo(() => [...new Set(cards.map(c => c.member).filter(Boolean))].sort(), [cards]);
+    const allAlbums = useMemo(() => [...new Set(cards.map(c => c.album).filter(Boolean))].sort(), [cards]);
+    const albumUsage = useMemo(() => {
+        const map = {};
+        cards.forEach(c => { if (c.album)
+            map[c.album] = (map[c.album] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards]);
+    const sourceUsage = useMemo(() => {
+        const map = {};
+        customSources.forEach(s => { map[s] = 0; });
+        cards.forEach(c => { if (c.source)
+            map[c.source] = (map[c.source] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards, customSources]);
+    const categoryUsage = useMemo(() => {
+        const map = {};
+        customCategories.forEach(c => { map[c] = 0; });
+        cards.forEach(c => { if (c.category)
+            map[c.category] = (map[c.category] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards, customCategories]);
+    const versionTagUsage = useMemo(() => {
+        const map = {};
+        cards.forEach(c => toTags(c.versionDetail).forEach(t => { map[t] = (map[t] || 0) + 1; }));
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards]);
+    const itemTypeUsage = useMemo(() => {
+        const map = {};
+        customItemTypes.forEach(v => { map[v] = 0; });
+        cards.forEach(c => { if (c.itemType)
+            map[c.itemType] = (map[c.itemType] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards, customItemTypes]);
+    const productFormatUsage = useMemo(() => {
+        const map = {};
+        customProductFormats.forEach(v => { map[v] = 0; });
+        cards.forEach(c => { if (c.productFormat)
+            map[c.productFormat] = (map[c.productFormat] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards, customProductFormats]);
+    const characterSeriesUsage = useMemo(() => {
+        const map = {};
+        customCharacterSeries.forEach(v => { map[v] = 0; });
+        cards.forEach(c => { if (c.characterSeries)
+            map[c.characterSeries] = (map[c.characterSeries] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards, customCharacterSeries]);
+    const characterUsage = useMemo(() => {
+        const map = {};
+        customCharacters.forEach(v => { map[v] = 0; });
+        cards.forEach(c => { if (c.character)
+            map[c.character] = (map[c.character] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [cards, customCharacters]);
+    async function renameFieldValue(field, oldVal, newVal) {
+        if (!newVal || newVal === oldVal)
+            return;
+        let next;
+        if (field === 'versionDetail') {
+            next = cards.map(c => {
+                const tags = toTags(c.versionDetail);
+                if (!tags.includes(oldVal))
+                    return c;
+                return { ...c, versionDetail: [...new Set(tags.map(t => (t === oldVal ? newVal : t)))] };
+            });
+        }
+        else {
+            next = cards.map(c => (c[field] === oldVal ? { ...c, [field]: newVal } : c));
+        }
+        setCards(next);
+        await persist(next);
+        if (field === 'versionDetail') {
+            const nextValues = [...new Set(customVersions.map(v => (v === oldVal ? newVal : v)))];
+            setCustomVersions(nextValues);
+            await persistCustomLists({ versions: nextValues });
+        }
+        else if (field === 'source') {
+            const nextSources = [...new Set(customSources.map(s => (s === oldVal ? newVal : s)))];
+            setCustomSources(nextSources);
+            await persistCustomLists({ sources: nextSources });
+        }
+        else if (field === 'category') {
+            const nextCategories = [...new Set(customCategories.map(c => (c === oldVal ? newVal : c)))];
+            setCustomCategories(nextCategories);
+            await persistCustomLists({ categories: nextCategories });
+        }
+        else if (field === 'itemType') {
+            const nextValues = [...new Set(customItemTypes.map(v => (v === oldVal ? newVal : v)))];
+            setCustomItemTypes(nextValues);
+            await persistCustomLists({ itemTypes: nextValues });
+        }
+        else if (field === 'productFormat') {
+            const nextValues = [...new Set(customProductFormats.map(v => (v === oldVal ? newVal : v)))];
+            setCustomProductFormats(nextValues);
+            await persistCustomLists({ productFormats: nextValues });
+        }
+        else if (field === 'characterSeries') {
+            const nextValues = [...new Set(customCharacterSeries.map(v => (v === oldVal ? newVal : v)))];
+            setCustomCharacterSeries(nextValues);
+            await persistCustomLists({ characterSeries: nextValues });
+        }
+        else if (field === 'character') {
+            const nextValues = [...new Set(customCharacters.map(v => (v === oldVal ? newVal : v)))];
+            setCustomCharacters(nextValues);
+            await persistCustomLists({ characters: nextValues });
+        }
+        setToast(`Renamed "${oldVal}" to "${newVal}".`);
+        setTimeout(() => setToast(''), 2500);
+    }
+    async function deleteFieldValue(field, val) {
+        if (!confirm(`Remove "${val}" from every card that has it? This can't be undone automatically.`))
+            return;
+        let next;
+        if (field === 'versionDetail') {
+            next = cards.map(c => {
+                const tags = toTags(c.versionDetail);
+                if (!tags.includes(val))
+                    return c;
+                return { ...c, versionDetail: tags.filter(t => t !== val) };
+            });
+        }
+        else {
+            next = cards.map(c => (c[field] === val ? { ...c, [field]: '' } : c));
+        }
+        setCards(next);
+        await persist(next);
+        if (field === 'versionDetail') {
+            const nextValues = customVersions.filter(v => v !== val);
+            setCustomVersions(nextValues);
+            await persistCustomLists({ versions: nextValues });
+        }
+        else if (field === 'source') {
+            const nextSources = customSources.filter(s => s !== val);
+            setCustomSources(nextSources);
+            await persistCustomLists({ sources: nextSources });
+        }
+        else if (field === 'category') {
+            const nextCategories = customCategories.filter(c => c !== val);
+            setCustomCategories(nextCategories);
+            await persistCustomLists({ categories: nextCategories });
+        }
+        else if (field === 'itemType') {
+            const nextValues = customItemTypes.filter(v => v !== val);
+            setCustomItemTypes(nextValues);
+            await persistCustomLists({ itemTypes: nextValues });
+        }
+        else if (field === 'productFormat') {
+            const nextValues = customProductFormats.filter(v => v !== val);
+            setCustomProductFormats(nextValues);
+            await persistCustomLists({ productFormats: nextValues });
+        }
+        else if (field === 'characterSeries') {
+            const nextValues = customCharacterSeries.filter(v => v !== val);
+            setCustomCharacterSeries(nextValues);
+            await persistCustomLists({ characterSeries: nextValues });
+        }
+        else if (field === 'character') {
+            const nextValues = customCharacters.filter(v => v !== val);
+            setCustomCharacters(nextValues);
+            await persistCustomLists({ characters: nextValues });
+        }
+        setToast(`Deleted "${val}".`);
+        setTimeout(() => setToast(''), 2500);
+    }
+    const categories = useMemo(() => {
+        const existing = new Set(customCategories);
+        cards.forEach(c => { if (c.category)
+            existing.add(c.category); });
+        return [...existing].sort();
+    }, [cards, customCategories]);
+    const sourceOptions = useMemo(() => {
+        const all = new Set(customSources);
+        cards.forEach(c => { if (c.source)
+            all.add(c.source); });
+        return [...all].sort();
+    }, [cards, customSources]);
+    const itemTypeOptions = useMemo(() => [...new Set([...customItemTypes, ...cards.map(c => c.itemType).filter(Boolean)])].sort(), [cards, customItemTypes]);
+    const productFormatOptions = useMemo(() => [...new Set([...customProductFormats, ...cards.map(c => c.productFormat).filter(Boolean)])].sort(), [cards, customProductFormats]);
+    const versionDetailOptions = useMemo(() => {
+        const set = new Set(customVersions);
+        cards.forEach(c => toTags(c.versionDetail).forEach(t => set.add(t)));
+        return [...set].sort();
+    }, [cards, customVersions]);
+    const characterSeriesOptions = useMemo(() => [...new Set([...customCharacterSeries, ...cards.map(c => c.characterSeries).filter(Boolean)])].sort(), [cards, customCharacterSeries]);
+    const characterOptions = useMemo(() => [...new Set([...customCharacters, ...cards.map(c => c.character).filter(Boolean)])].sort(), [cards, customCharacters]);
+    const sellerOptions = useMemo(() => {
+        const set = new Set();
+        cards.forEach(c => (c.copies || []).forEach(cp => { if (cp.seller)
+            set.add(cp.seller); }));
+        return [...set].sort();
+    }, [cards]);
+    const members = useMemo(() => [...new Set(cards.filter(c => !form.group || c.group === form.group).map(c => c.member).filter(Boolean))].sort(), [cards, form.group]);
+    const formAlbums = useMemo(() => [...new Set(cards.filter(c => !form.group || c.group === form.group).map(c => c.album).filter(Boolean))].sort(), [cards, form.group]);
+    const formEras = useMemo(() => [...new Set(cards.filter(c => !form.album || c.album === form.album).map(c => c.era).filter(Boolean))].sort(), [cards, form.album]);
+    const albumEraMap = useMemo(() => {
+        const map = {};
+        cards.forEach(c => { if (c.album && c.era && !map[c.album])
+            map[c.album] = c.era; });
+        return map;
+    }, [cards]);
+    const filtered = useMemo(() => {
+        if (statsCardFilter) {
+            return cards.filter(c => statsCardFilter.has(c.id));
+        }
+        let list = cards.filter(c => {
+            const owned = isOwned(c);
+            if (filterOwned === 'owned' && !owned)
+                return false;
+            if (filterOwned === 'missing' && owned)
+                return false;
+            if (filterGroup && c.group !== filterGroup)
+                return false;
+            if (filterMember && c.member !== filterMember)
+                return false;
+            if (filterAlbum && c.album !== filterAlbum)
+                return false;
+            if (filterEra && c.era !== filterEra)
+                return false;
+            if (filterItemType && c.itemType !== filterItemType)
+                return false;
+            if (filterProductFormat && c.productFormat !== filterProductFormat)
+                return false;
+            if (filterCategory && c.category !== filterCategory)
+                return false;
+            if (filterSource && c.source !== filterSource)
+                return false;
+            if (filterCharacterSeries && c.characterSeries !== filterCharacterSeries)
+                return false;
+            if (filterCharacter && c.character !== filterCharacter)
+                return false;
+            if (filterVersionTag && !toTags(c.versionDetail).includes(filterVersionTag))
+                return false;
+            if (filterStatus && c.status !== filterStatus)
+                return false;
+            if (search) {
+                const q = search.toLowerCase();
+                const hay = [c.group, c.member, c.album, c.era, c.itemType, c.productFormat, c.category, c.source, c.characterSeries, c.character, ...toTags(c.versionDetail), c.notes, ...(c.copies || []).map(cp => cp.seller)].join(' ').toLowerCase();
+                if (!hay.includes(q))
+                    return false;
+            }
+            return true;
+        });
+        switch (sortBy) {
+            case 'group':
+                list = [...list].sort((a, b) => (a.group || '').localeCompare(b.group) || (a.member || '').localeCompare(b.member));
+                break;
+            case 'member':
+                list = [...list].sort((a, b) => (a.member || '').localeCompare(b.member));
+                break;
+            case 'version':
+                list = [...list].sort((a, b) => versionName(a).localeCompare(versionName(b)));
+                break;
+            case 'release':
+                list = [...list].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''));
+                break;
+            case 'spent-high':
+                list = [...list].sort((a, b) => sumSpent(b) - sumSpent(a));
+                break;
+            case 'spent-low':
+                list = [...list].sort((a, b) => sumSpent(a) - sumSpent(b));
+                break;
+            default: list = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        }
+        return list;
+    }, [cards, statsCardFilter, filterOwned, filterGroup, filterMember, filterAlbum, filterEra, filterItemType, filterProductFormat, filterCategory, filterSource, filterCharacterSeries, filterCharacter, filterVersionTag, filterStatus, search, sortBy]);
+    const visible = filtered.slice(0, visibleCount);
+    const activeFilterCount = [filterGroup, filterMember, filterAlbum, filterEra, filterItemType, filterProductFormat, filterCategory, filterSource, filterCharacterSeries, filterCharacter, filterVersionTag, filterStatus].filter(Boolean).length;
+    const ownedCount = useMemo(() => cards.filter(isOwned).length, [cards]);
+    const totalPhysical = useMemo(() => cards.filter(isOwned).reduce((sum, c) => sum + (c.copies || []).length, 0), [cards]);
+    const duplicateCount = Math.max(0, totalPhysical - ownedCount);
+    const statsBounds = useMemo(() => periodBoundsFor(statsPeriod, customStart, customEnd), [statsPeriod, customStart, customEnd]);
+    const statsData = useMemo(() => {
+        const matches = [];
+        cards.forEach(card => {
+            (card.copies || []).forEach(copy => {
+                if (copyMatchesPeriod(copy, statsBounds))
+                    matches.push({ card, copy });
+            });
+        });
+        const cardsBought = matches.length;
+        const uniqueIds = new Set(matches.map(m => m.card.id));
+        const uniqueCards = uniqueIds.size;
+        const duplicateCopies = cardsBought - uniqueCards;
+        const amountSpent = matches.reduce((sum, m) => sum + parsePrice(m.copy.price), 0);
+        const duplicateCardIds = [...uniqueIds].filter(id => matches.filter(m => m.card.id === id).length > 1);
+        const byCategory = {};
+        matches.forEach(m => {
+            const cat = m.card.category || 'Uncategorized';
+            if (!byCategory[cat])
+                byCategory[cat] = { count: 0, spent: 0, ids: new Set() };
+            byCategory[cat].count += 1;
+            byCategory[cat].spent += parsePrice(m.copy.price);
+            byCategory[cat].ids.add(m.card.id);
+        });
+        const byMember = {};
+        matches.forEach(m => {
+            const mem = m.card.member || 'Unknown';
+            if (!byMember[mem])
+                byMember[mem] = { count: 0, spent: 0, ids: new Set() };
+            byMember[mem].count += 1;
+            byMember[mem].spent += parsePrice(m.copy.price);
+            byMember[mem].ids.add(m.card.id);
+        });
+        let timeBreakdown = [];
+        if (statsBounds.type === 'month') {
+            const byDay = {};
+            matches.forEach(m => {
+                if (getDatePrecision(m.copy.date) === 'day') {
+                    const d = m.copy.date;
+                    if (!byDay[d])
+                        byDay[d] = { count: 0, ids: new Set() };
+                    byDay[d].count += 1;
+                    byDay[d].ids.add(m.card.id);
+                }
+            });
+            timeBreakdown = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).map(([d, v]) => ({ label: formatFlexDate(d), count: v.count, ids: v.ids }));
+        }
+        else if (statsBounds.type === 'year') {
+            const byMonth = {};
+            matches.forEach(m => {
+                const precision = getDatePrecision(m.copy.date);
+                if (precision === 'day' || precision === 'month') {
+                    const mo = m.copy.date.slice(0, 7);
+                    if (!byMonth[mo])
+                        byMonth[mo] = { count: 0, ids: new Set() };
+                    byMonth[mo].count += 1;
+                    byMonth[mo].ids.add(m.card.id);
+                }
+            });
+            timeBreakdown = Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0])).map(([mo, v]) => ({ label: formatFlexDate(mo), count: v.count, ids: v.ids }));
+        }
+        else if (statsBounds.type === 'all' || statsBounds.type === 'range') {
+            const byYear = {};
+            matches.forEach(m => {
+                const yr = m.copy.date.slice(0, 4);
+                if (!byYear[yr])
+                    byYear[yr] = { count: 0, ids: new Set() };
+                byYear[yr].count += 1;
+                byYear[yr].ids.add(m.card.id);
+            });
+            timeBreakdown = Object.entries(byYear).sort((a, b) => a[0].localeCompare(b[0])).map(([yr, v]) => ({ label: yr, count: v.count, ids: v.ids }));
+        }
+        const releasedIds = new Set();
+        const addedIds = new Set();
+        cards.forEach(card => {
+            if (card.releaseDate) {
+                if (statsBounds.type === 'all')
+                    releasedIds.add(card.id);
+                else if (statsBounds.type === 'day' && card.releaseDate === statsBounds.value)
+                    releasedIds.add(card.id);
+                else if (statsBounds.type === 'month' && card.releaseDate.slice(0, 7) === statsBounds.value)
+                    releasedIds.add(card.id);
+                else if (statsBounds.type === 'year' && card.releaseDate.slice(0, 4) === statsBounds.value)
+                    releasedIds.add(card.id);
+                else if (statsBounds.type === 'range' && card.releaseDate >= statsBounds.start && card.releaseDate <= statsBounds.end)
+                    releasedIds.add(card.id);
+            }
+            if (card.createdAt) {
+                const d = new Date(card.createdAt);
+                const ds = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+                if (statsBounds.type === 'all')
+                    addedIds.add(card.id);
+                else if (statsBounds.type === 'day' && ds === statsBounds.value)
+                    addedIds.add(card.id);
+                else if (statsBounds.type === 'month' && ds.slice(0, 7) === statsBounds.value)
+                    addedIds.add(card.id);
+                else if (statsBounds.type === 'year' && ds.slice(0, 4) === statsBounds.value)
+                    addedIds.add(card.id);
+                else if (statsBounds.type === 'range' && ds >= statsBounds.start && ds <= statsBounds.end)
+                    addedIds.add(card.id);
+            }
+        });
+        return { matches, cardsBought, uniqueIds, uniqueCards, duplicateCopies, duplicateCardIds, amountSpent, byCategory, byMember, timeBreakdown, releasedIds, addedIds };
+    }, [cards, statsBounds]);
+    const memberOwnedBreakdown = useMemo(() => {
+        const map = {};
+        cards.forEach(c => {
+            if (!isOwned(c))
+                return;
+            const mem = c.member || 'Unknown';
+            if (!map[mem])
+                map[mem] = { count: 0, ids: new Set() };
+            map[mem].count += 1;
+            map[mem].ids.add(c.id);
+        });
+        return Object.entries(map).sort((a, b) => b[1].count - a[1].count);
+    }, [cards]);
+    function showStatCards(ids) {
+        setStatsCardFilter(new Set(ids));
+        setView('main');
+    }
+    function clearStatsCardFilter() {
+        setStatsCardFilter(null);
+    }
+    function openAdd() {
+        const defaultGroup = mostCommon(cards.map(c => c.group));
+        const defaultMember = mostCommon(cards.filter(c => c.group === defaultGroup).map(c => c.member));
+        setForm({ ...emptyForm, group: defaultGroup, member: defaultMember, copies: [] });
+        setEditingId(null);
+        setModalMode('add');
+    }
+    function openEdit(card) {
+        setForm({ ...emptyForm, ...card, copies: card.copies ? card.copies.map(c => ({ ...c })) : [] });
+        setEditingId(card.id);
+        setModalMode('edit');
+        setSelectedCard(null);
+    }
+    function closeModal() {
+        setDrawerVisible(false);
+        setTimeout(() => {
+            setModalMode(null);
+            setForm(emptyForm);
+            setEditingId(null);
+        }, 220);
+    }
+    function handleAlbumChange(v) {
+        const era = albumEraMap[v];
+        setForm(f => ({ ...f, album: v, era: era || f.era }));
+    }
+    function addCopy() {
+        setForm(f => ({ ...f, status: 'Owned', copies: [...f.copies, { id: uid(), date: '', price: '', seller: '' }] }));
+    }
+    async function quickAddCopy(cardId) {
+        const next = cards.map(c => (c.id === cardId ? { ...c, status: 'Owned', copies: [...(c.copies || []), { id: uid(), date: '', price: '', seller: '' }] } : c));
+        setCards(next);
+        await persist(next);
+        setToast('Copy added to collection.');
+        setTimeout(() => setToast(''), 2000);
+    }
+    function updateCopy(idx, key, value) {
+        setForm(f => ({ ...f, copies: f.copies.map((c, i) => (i === idx ? { ...c, [key]: value } : c)) }));
+    }
+    function removeCopy(idx) {
+        setForm(f => ({ ...f, copies: f.copies.filter((_, i) => i !== idx) }));
+    }
+    async function saveForm() {
+        if (!form.group.trim()) {
+            setToast('Group is required.');
+            setTimeout(() => setToast(''), 3000);
+            return;
+        }
+        let next;
+        if (editingId) {
+            next = cards.map(c => (c.id === editingId ? { ...c, ...form } : c));
+        }
+        else {
+            next = [...cards, { ...form, id: uid(), createdAt: Date.now() }];
+        }
+        setCards(next);
+        closeModal();
+        await persist(next);
+        setToast(editingId ? 'Photocard updated.' : 'Photocard added.');
+        setTimeout(() => setToast(''), 2500);
+    }
+    async function deleteCard(id) {
+        const next = cards.filter(c => c.id !== id);
+        setCards(next);
+        setSelectedCard(null);
+        await persist(next);
+        setToast('Photocard deleted.');
+        setTimeout(() => setToast(''), 2500);
+    }
+    function openQuickCrop(card) {
+        setCropCard(card);
+        setCropDraft(card.imageCrop || null);
+    }
+    function closeQuickCrop() {
+        setCropCard(null);
+        setCropDraft(null);
+    }
+    async function saveQuickCrop() {
+        const next = cards.map(c => (c.id === cropCard.id ? { ...c, imageCrop: cropDraft } : c));
+        setCards(next);
+        setSelectedCard(sc => (sc && sc.id === cropCard.id ? { ...sc, imageCrop: cropDraft } : sc));
+        closeQuickCrop();
+        await persist(next);
+        setToast('Crop updated.');
+        setTimeout(() => setToast(''), 2000);
+    }
+    function toggleSelectMode() {
+        setSelectMode(m => !m);
+        setSelectedIds(new Set());
+    }
+    function toggleSelected(id) {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id))
+                next.delete(id);
+            else
+                next.add(id);
+            return next;
+        });
+    }
+    async function bulkDelete() {
+        const count = selectedIds.size;
+        const next = cards.filter(c => !selectedIds.has(c.id));
+        setCards(next);
+        setSelectedIds(new Set());
+        setSelectMode(false);
+        await persist(next);
+        setToast(`${count} photocard${count !== 1 ? 's' : ''} deleted.`);
+        setTimeout(() => setToast(''), 2500);
+    }
+    async function applyBulkEdit() {
+        const count = selectedIds.size;
+        const next = cards.map(c => {
+            if (!selectedIds.has(c.id))
+                return c;
+            const updated = { ...c };
+            if (bulkForm.group)
+                updated.group = bulkForm.group;
+            if (bulkForm.member)
+                updated.member = bulkForm.member;
+            if (bulkForm.album)
+                updated.album = bulkForm.album;
+            if (bulkForm.era)
+                updated.era = bulkForm.era;
+            if (bulkForm.itemType)
+                updated.itemType = bulkForm.itemType;
+            if (bulkForm.productFormat)
+                updated.productFormat = bulkForm.productFormat;
+            if (bulkForm.source)
+                updated.source = bulkForm.source;
+            if (bulkForm.versionDetail.length > 0)
+                updated.versionDetail = bulkForm.versionDetail;
+            if (bulkForm.category)
+                updated.category = bulkForm.category;
+            if (bulkForm.characterSeries)
+                updated.characterSeries = bulkForm.characterSeries;
+            if (bulkForm.character)
+                updated.character = bulkForm.character;
+            if (bulkForm.releaseDate)
+                updated.releaseDate = bulkForm.releaseDate;
+            if (bulkForm.status)
+                updated.status = bulkForm.status;
+            if (bulkForm.dateSold)
+                updated.dateSold = bulkForm.dateSold;
+            if (bulkForm.notes)
+                updated.notes = bulkForm.notes;
+            return updated;
+        });
+        setCards(next);
+        setBulkOpen(false);
+        setBulkForm({ group: '', member: '', album: '', era: '', itemType: '', productFormat: '', source: '', versionDetail: [], category: '', characterSeries: '', character: '', releaseDate: '', status: '', dateSold: '', notes: '' });
+        setSelectedIds(new Set());
+        setSelectMode(false);
+        await persist(next);
+        setToast(`Bulk update applied to ${count} card${count !== 1 ? 's' : ''}.`);
+        setTimeout(() => setToast(''), 2500);
+    }
+    function exportJson() {
+        const blob = new Blob([JSON.stringify(cards, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `photocards-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+    function importJson(e) {
+        const file = e.target.files[0];
+        if (!file)
+            return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (!Array.isArray(data))
+                    throw new Error('bad format');
+                setCards(data);
+                await persist(data);
+                setToast(`Imported ${data.length} photocards.`);
+                setTimeout(() => setToast(''), 3000);
+            }
+            catch (err) {
+                setToast('Import failed — file is not a valid backup.');
+                setTimeout(() => setToast(''), 3000);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    }
+    function clearFilters() {
+        setFilterGroup('');
+        setFilterMember('');
+        setFilterAlbum('');
+        setFilterEra('');
+        setFilterItemType('');
+        setFilterProductFormat('');
+        setFilterCategory('');
+        setFilterSource('');
+        setFilterCharacterSeries('');
+        setFilterCharacter('');
+        setFilterVersionTag('');
+        setFilterStatus('');
+        setSearch('');
+    }
+    return (React.createElement("div", { style: { background: theme.bg, color: theme.text, minHeight: '100%', fontFamily: "'Inter', system-ui, sans-serif" }, className: "w-full min-h-screen" },
+        React.createElement("style", null, `
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+        .pc-font-display { font-family: 'Fraunces', serif; }
+        .pc-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+        .pc-scroll::-webkit-scrollbar-thumb { background: #3A2F3E; border-radius: 3px; }
+        .pc-card { aspect-ratio: 55 / 85; }
+        input, select, textarea { background: ${theme.surfaceAlt}; border: 1px solid ${theme.border}; color: ${theme.text}; }
+        input::placeholder, textarea::placeholder { color: ${theme.muted}; }
+        input:focus, select:focus, textarea:focus { outline: 2px solid ${theme.accent}; outline-offset: 1px; }
+      `),
+        React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-6" },
+            React.createElement("div", { className: "flex items-center justify-between gap-3 mb-5" },
+                React.createElement("div", null,
+                    React.createElement("h1", { className: "pc-font-display text-2xl sm:text-3xl", style: { fontWeight: 600 } }, "Photocard Binder"),
+                    React.createElement("p", { className: "text-xs italic mt-0.5", style: { color: theme.muted } }, "janis' photocard tracker because she can't stop buying ATEEZ pcs"),
+                    React.createElement("p", { className: "text-sm mt-1", style: { color: theme.muted } },
+                        ownedCount,
+                        " owned \u00B7 ",
+                        cards.length,
+                        " tracked \u00B7 ",
+                        totalPhysical,
+                        " physical card",
+                        totalPhysical !== 1 ? 's' : '',
+                        duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''}` : '')),
+                isOwner && (React.createElement("div", { className: "flex gap-2 shrink-0" },
+                    view === 'main' && (React.createElement("button", { onClick: () => setManageOpen(true), title: "Manage values", className: "w-9 h-9 flex items-center justify-center rounded-full", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                        React.createElement(Settings, { size: 14 }))),
+                    React.createElement("button", { onClick: () => setView(v => (v === 'stats' ? 'main' : 'stats')), className: "px-3 py-2 rounded-full text-xs font-medium", style: { background: view === 'stats' ? theme.accent : theme.surfaceAlt, color: view === 'stats' ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` } }, view === 'stats' ? 'Collection' : 'Stats'),
+                    view === 'main' && (React.createElement("button", { onClick: toggleSelectMode, className: "px-3 py-2 rounded-full text-xs font-medium", style: { background: selectMode ? theme.accent : theme.surfaceAlt, color: selectMode ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` } }, selectMode ? 'Cancel' : 'Select')),
+                    view === 'main' && (React.createElement("button", { onClick: openAdd, className: "flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm", style: { background: theme.accent, color: '#1A1410' } },
+                        React.createElement(Plus, { size: 16 }),
+                        " Add"))))),
+            view === 'main' && (React.createElement(React.Fragment, null,
+                statsCardFilter && (React.createElement("div", { className: "flex items-center justify-between px-3 py-2 rounded-lg mb-3 text-xs", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                    React.createElement("span", null,
+                        "Showing ",
+                        statsCardFilter.size,
+                        " card",
+                        statsCardFilter.size !== 1 ? 's' : '',
+                        " from Stats"),
+                    React.createElement("button", { onClick: clearStatsCardFilter, className: "underline font-medium" }, "Clear"))),
+                React.createElement("div", { className: "relative mb-3" },
+                    React.createElement(Search, { size: 16, style: { color: theme.muted }, className: "absolute left-3 top-1/2 -translate-y-1/2" }),
+                    React.createElement("input", { value: search, onChange: e => { setSearch(e.target.value); setVisibleCount(60); }, placeholder: "Search group, member, album, era, seller, notes...", className: "w-full pl-9 pr-3 py-2.5 rounded-xl text-sm" })),
+                React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [{ value: '', label: 'Everything' }, { value: 'owned', label: 'My Collection' }, { value: 'missing', label: 'Not owned' }].map(o => (React.createElement("button", { key: o.value, onClick: () => { setFilterOwned(o.value); setVisibleCount(60); }, className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap", style: { background: filterOwned === o.value ? theme.accent : theme.surfaceAlt, color: filterOwned === o.value ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` } }, o.label)))),
+                React.createElement("div", { className: "flex items-center gap-2 mb-4 overflow-x-auto pc-scroll pb-1" },
+                    React.createElement("button", { onClick: () => setShowFilters(s => !s), className: "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0", style: { background: activeFilterCount ? theme.accent : theme.surfaceAlt, color: activeFilterCount ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` } },
+                        "Filters ",
+                        activeFilterCount > 0 && `(${activeFilterCount})`,
+                        React.createElement(ChevronDown, { size: 13, style: { transform: showFilters ? 'rotate(180deg)' : 'none', transition: 'transform .15s' } })),
+                    activeFilterCount > 0 && (React.createElement("button", { onClick: clearFilters, className: "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs shrink-0", style: { color: theme.muted } },
+                        React.createElement(RotateCcw, { size: 12 }),
+                        " Clear"))),
+                showFilters && (React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 p-3 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                    React.createElement("select", { value: filterGroup, onChange: e => { setFilterGroup(e.target.value); setFilterEra(''); setFilterMember(''); setFilterAlbum(''); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All groups"),
+                        groups.map(g => React.createElement("option", { key: g, value: g }, g))),
+                    React.createElement("select", { value: filterMember, onChange: e => { setFilterMember(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All members"),
+                        filterMembers.map(m => React.createElement("option", { key: m, value: m }, m))),
+                    React.createElement("select", { value: filterAlbum, onChange: e => { setFilterAlbum(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All releases / collections"),
+                        filterAlbums.map(a => React.createElement("option", { key: a, value: a }, a))),
+                    React.createElement("select", { value: filterEra, onChange: e => { setFilterEra(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All eras"),
+                        eras.map(e => React.createElement("option", { key: e, value: e }, e))),
+                    React.createElement("select", { value: filterItemType, onChange: e => { setFilterItemType(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All item types"),
+                        itemTypeOptions.map(v => React.createElement("option", { key: v, value: v }, v))),
+                    React.createElement("select", { value: filterProductFormat, onChange: e => { setFilterProductFormat(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All products / formats"),
+                        productFormatOptions.map(v => React.createElement("option", { key: v, value: v }, v))),
+                    React.createElement("select", { value: filterCategory, onChange: e => { setFilterCategory(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All card types / benefits"),
+                        categories.map(c => React.createElement("option", { key: c, value: c }, c))),
+                    React.createElement("select", { value: filterSource, onChange: e => { setFilterSource(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All sources / retailers"),
+                        sourceOptions.map(s => React.createElement("option", { key: s, value: s }, s))),
+                    React.createElement("select", { value: filterCharacterSeries, onChange: e => { setFilterCharacterSeries(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All character series"),
+                        characterSeriesOptions.map(v => React.createElement("option", { key: v, value: v }, v))),
+                    React.createElement("select", { value: filterCharacter, onChange: e => { setFilterCharacter(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All characters"),
+                        characterOptions.map(v => React.createElement("option", { key: v, value: v }, v))),
+                    React.createElement("select", { value: filterVersionTag, onChange: e => { setFilterVersionTag(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All versions/editions"),
+                        versionDetailOptions.map(v => React.createElement("option", { key: v, value: v }, v))),
+                    React.createElement("select", { value: filterStatus, onChange: e => { setFilterStatus(e.target.value); setVisibleCount(60); }, className: "px-2 py-2 rounded-lg text-sm" },
+                        React.createElement("option", { value: "" }, "All statuses"),
+                        STATUSES.map(s => React.createElement("option", { key: s.value, value: s.value }, s.value))),
+                    React.createElement("select", { value: sortBy, onChange: e => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" },
+                        React.createElement("option", { value: "recent" }, "Recently added"),
+                        React.createElement("option", { value: "group" }, "Group A\u2013Z"),
+                        React.createElement("option", { value: "member" }, "Member A\u2013Z"),
+                        React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"),
+                        React.createElement("option", { value: "release" }, "Release date"),
+                        React.createElement("option", { value: "spent-high" }, "Total spent: high to low"),
+                        React.createElement("option", { value: "spent-low" }, "Total spent: low to high")))),
+                !loaded ? (React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...")) : filtered.length === 0 ? (React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } },
+                    React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? 'No photocards yet. Add your first one.' : 'Nothing matches these filters.'))) : (React.createElement(React.Fragment, null,
+                    React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' } }, visible.map(card => {
+                        const badge = cardBadge(card);
+                        const owned = isOwned(card);
+                        const copyCount = (card.copies || []).length;
+                        return (React.createElement("div", { key: card.id },
+                            React.createElement("div", { className: "flex items-baseline justify-between gap-1 mb-1.5" },
+                                React.createElement("span", { className: "text-sm font-semibold truncate" }, card.group || '—'),
+                                React.createElement("span", { className: "text-sm font-semibold truncate text-right" }, card.member || '')),
+                            React.createElement("div", { role: "button", tabIndex: 0, onClick: () => { selectMode ? toggleSelected(card.id) : (setSelectedCard(card), setDetailSide('front')); }, onKeyDown: e => { if (e.key === 'Enter') {
+                                    selectMode ? toggleSelected(card.id) : (setSelectedCard(card), setDetailSide('front'));
+                                } }, className: "pc-card rounded-xl overflow-hidden relative cursor-pointer", style: { background: theme.surfaceAlt, border: selectMode && selectedIds.has(card.id) ? `2px solid ${theme.accent}` : `1px solid ${theme.border}` } },
+                                card.frontImage ? (React.createElement(CroppedImage, { src: resolveImageUrl(card.frontImage), crop: card.imageCrop, onError: e => { e.target.style.display = 'none'; if (e.target.nextSibling)
+                                        e.target.nextSibling.style.display = 'flex'; } })) : null,
+                                React.createElement("div", { className: "w-full h-full items-center justify-center flex-col gap-1", style: { display: card.frontImage ? 'none' : 'flex', color: theme.muted } },
+                                    React.createElement(ImageIcon, { size: 20 }),
+                                    React.createElement("span", { className: "text-[10px]" }, "No image")),
+                                selectMode ? (React.createElement("div", { className: "absolute top-2 left-2 w-5 h-5 rounded-full flex items-center justify-center", style: { background: selectedIds.has(card.id) ? theme.accent : 'rgba(0,0,0,0.5)', border: '1.5px solid rgba(255,255,255,0.8)' } }, selectedIds.has(card.id) && React.createElement("span", { style: { color: '#1A1410', fontSize: 11, fontWeight: 700 } }, "\u2713"))) : (badge && (isOwner ? (React.createElement("button", { onClick: e => { e.stopPropagation(); openEdit(card); }, className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", style: { background: badge.color, color: '#1A1410' } }, badge.label)) : (React.createElement("span", { className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide", style: { background: badge.color, color: '#1A1410' } }, badge.label)))),
+                                isOwner && !selectMode && (React.createElement("button", { onClick: e => { e.stopPropagation(); quickAddCopy(card.id); }, title: owned ? 'Add another copy' : 'Add to my collection', className: "absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold", style: { background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)' } }, owned ? copyCount : React.createElement(Plus, { size: 12 })))),
+                            React.createElement("div", { className: "flex items-end justify-between gap-1.5 mt-1.5" },
+                                React.createElement("div", { className: "min-w-0" },
+                                    card.album && React.createElement("p", { className: "text-[11px] truncate", style: { color: theme.muted } }, card.album),
+                                    versionName(card) && React.createElement("p", { className: "text-xs font-semibold truncate" }, versionName(card))),
+                                card.category && React.createElement("p", { className: "text-[10px] italic shrink-0", style: { color: theme.muted } }, card.category))));
+                    })),
+                    visibleCount < filtered.length && (React.createElement("div", { className: "text-center mt-5" },
+                        React.createElement("button", { onClick: () => setVisibleCount(v => v + 60), className: "px-4 py-2 rounded-full text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                            "Load more (",
+                            filtered.length - visibleCount,
+                            " remaining)"))))),
+                React.createElement("div", { className: "flex items-center justify-center gap-4 mt-8 pt-4", style: { borderTop: `1px solid ${theme.border}` } },
+                    React.createElement("button", { onClick: exportJson, className: "flex items-center gap-1.5 text-xs", style: { color: theme.muted } },
+                        React.createElement(Download, { size: 13 }),
+                        " Export backup"),
+                    isOwner && (React.createElement("label", { className: "flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.muted } },
+                        React.createElement(Upload, { size: 13 }),
+                        " Import backup",
+                        React.createElement("input", { type: "file", accept: ".json", onChange: importJson, className: "hidden" })))))),
+            view === 'stats' && isOwner && (React.createElement("div", null,
+                React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [['today', 'Today'], ['month', 'This Month'], ['year', 'This Year'], ['all', 'All Time'], ['custom', 'Custom']].map(([p, label]) => (React.createElement("button", { key: p, onClick: () => setStatsPeriod(p), className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap", style: { background: statsPeriod === p ? theme.accent : theme.surfaceAlt, color: statsPeriod === p ? '#1A1410' : theme.text, border: `1px solid ${theme.border}` } }, label)))),
+                statsPeriod === 'custom' && (React.createElement("div", { className: "flex gap-2 mb-3" },
+                    React.createElement("input", { type: "date", value: customStart, onChange: e => setCustomStart(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" }),
+                    React.createElement("input", { type: "date", value: customEnd, onChange: e => setCustomEnd(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" }))),
+                React.createElement("p", { className: "text-sm mb-5", style: { color: theme.muted } }, statsBounds.label),
+                React.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" },
+                    React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                        React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.cardsBought),
+                        React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Cards bought")),
+                    React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                        React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.uniqueCards),
+                        React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Unique cards")),
+                    React.createElement("button", { onClick: () => showStatCards(statsData.duplicateCardIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                        React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.duplicateCopies),
+                        React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Duplicate copies")),
+                    React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                        React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } },
+                            "\u20B1",
+                            statsData.amountSpent.toFixed(2)),
+                        React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Amount spent"))),
+                statsData.timeBreakdown.length > 0 && (React.createElement("div", { className: "mb-6" },
+                    React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Purchases over time"),
+                    React.createElement("div", { className: "space-y-1.5" }, statsData.timeBreakdown.map(t => (React.createElement("button", { key: t.label, onClick: () => showStatCards(t.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                        React.createElement("span", null, t.label),
+                        React.createElement("span", { style: { color: theme.muted } },
+                            t.count,
+                            " card",
+                            t.count !== 1 ? 's' : ''))))))),
+                Object.keys(statsData.byCategory).length > 0 && (React.createElement("div", { className: "mb-6" },
+                    React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by card type / benefit"),
+                    React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byCategory).sort((a, b) => b[1].spent - a[1].spent).map(([cat, v]) => (React.createElement("button", { key: cat, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                        React.createElement("span", null, cat),
+                        React.createElement("span", { style: { color: theme.muted } },
+                            v.count,
+                            " card",
+                            v.count !== 1 ? 's' : '',
+                            " \u00B7 \u20B1",
+                            v.spent.toFixed(2)))))))),
+                Object.keys(statsData.byMember).length > 0 && (React.createElement("div", { className: "mb-6" },
+                    React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by member"),
+                    React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byMember).sort((a, b) => b[1].spent - a[1].spent).map(([mem, v]) => (React.createElement("button", { key: mem, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                        React.createElement("span", null, mem),
+                        React.createElement("span", { style: { color: theme.muted } },
+                            v.count,
+                            " card",
+                            v.count !== 1 ? 's' : '',
+                            " \u00B7 \u20B1",
+                            v.spent.toFixed(2)))))))),
+                memberOwnedBreakdown.length > 0 && (React.createElement("div", { className: "mb-6" },
+                    React.createElement("h3", { className: "text-sm font-semibold mb-2" },
+                        "Owned cards by member ",
+                        React.createElement("span", { className: "font-normal", style: { color: theme.muted } }, "(all time)")),
+                    React.createElement("div", { className: "space-y-1.5" }, memberOwnedBreakdown.map(([mem, v]) => (React.createElement("button", { key: mem, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                        React.createElement("span", null, mem),
+                        React.createElement("span", { style: { color: theme.muted } },
+                            v.count,
+                            " card",
+                            v.count !== 1 ? 's' : ''))))))),
+                React.createElement("div", null,
+                    React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Also in this period"),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-3" },
+                        React.createElement("button", { onClick: () => showStatCards(statsData.releasedIds), className: "p-3 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                            React.createElement("p", { className: "text-lg font-bold" }, statsData.releasedIds.size),
+                            React.createElement("p", { className: "text-xs", style: { color: theme.muted } }, "Cards released")),
+                        React.createElement("button", { onClick: () => showStatCards(statsData.addedIds), className: "p-3 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                            React.createElement("p", { className: "text-lg font-bold" }, statsData.addedIds.size),
+                            React.createElement("p", { className: "text-xs", style: { color: theme.muted } }, "Added to tracker"))))))),
+        modalMode && (React.createElement("div", { className: "fixed inset-0 z-50", style: { background: 'rgba(0,0,0,0.6)', opacity: drawerVisible ? 1 : 0, transition: 'opacity 220ms ease-out' }, onClick: closeModal },
+            React.createElement("div", { onClick: e => e.stopPropagation(), className: "fixed top-0 right-0 h-full w-full sm:w-[420px] overflow-y-auto pc-scroll p-5", style: {
+                    background: theme.surface,
+                    borderLeft: `1px solid ${theme.border}`,
+                    transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)',
+                    transition: 'transform 220ms ease-out',
+                } },
+                React.createElement("div", { className: "flex items-center justify-between mb-4" },
+                    React.createElement("h2", { className: "pc-font-display text-lg", style: { fontWeight: 600 } }, editingId ? 'Edit photocard' : 'Add photocard'),
+                    React.createElement("button", { type: "button", onClick: closeModal },
+                        React.createElement(X, { size: 18 }))),
+                React.createElement("div", { className: "space-y-3" },
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Group *", value: form.group, options: groups, placeholder: "New group name", onChange: v => setForm(f => ({ ...f, group: v })) }),
+                        React.createElement(SelectOrNew, { label: "Member", value: form.member, options: members, placeholder: "New member name", onChange: v => setForm(f => ({ ...f, member: v })) })),
+                    React.createElement(ImageField, { label: "Front image", value: form.frontImage, onChange: v => setForm(f => ({ ...f, frontImage: v })) }),
+                    React.createElement(ImageField, { label: "Back image (optional)", value: form.backImage, onChange: v => setForm(f => ({ ...f, backImage: v })) }),
+                    form.frontImage && (React.createElement("div", null,
+                        React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, "Crop"),
+                        React.createElement(ImageCropper, { src: resolveImageUrl(form.frontImage), crop: form.imageCrop, onChange: c => setForm(f => ({ ...f, imageCrop: c })) }))),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Release / collection", value: form.album, options: formAlbums, placeholder: "Release or collection name", onChange: handleAlbumChange }),
+                        React.createElement(SelectOrNew, { label: "Era (auto-fills)", value: form.era, options: formEras, placeholder: "Era name", onChange: v => setForm(f => ({ ...f, era: v })) })),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Item type", value: form.itemType || '', options: itemTypeOptions, placeholder: "e.g. Photocard", onChange: v => setForm(f => ({ ...f, itemType: v })) }),
+                        React.createElement(SelectOrNew, { label: "Product / format", value: form.productFormat || '', options: productFormatOptions, placeholder: "e.g. POCA Album", onChange: v => setForm(f => ({ ...f, productFormat: v })) })),
+                    React.createElement(TagMultiSelect, { label: "Version / edition", values: toTags(form.versionDetail), options: versionDetailOptions, onChange: v => setForm(f => ({ ...f, versionDetail: v })), placeholder: "e.g. 1.0, A, Diary, Pink, Mingi" }),
+                    React.createElement(SelectOrNew, { label: "Source / retailer / partner", value: form.source, options: sourceOptions, placeholder: "e.g. Makestar, HMV Japan, Nacific", onChange: v => setForm(f => ({ ...f, source: v })) }),
+                    React.createElement(SelectOrNew, { label: "Card type / benefit", value: form.category, options: categories, placeholder: "e.g. POB, Lucky Draw, Album Inclusion", onChange: v => setForm(f => ({ ...f, category: v })) }),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Character series (optional)", value: form.characterSeries || '', options: characterSeriesOptions, placeholder: "e.g. ANITEEZ", onChange: v => setForm(f => ({ ...f, characterSeries: v })) }),
+                        React.createElement(SelectOrNew, { label: "Character (optional)", value: form.character || '', options: characterOptions, placeholder: "e.g. Bbyongming", onChange: v => setForm(f => ({ ...f, character: v })) })),
+                    (form.productFormat || form.source || form.category || toTags(form.versionDetail).length > 0) && (React.createElement("p", { className: "text-xs -mt-1.5", style: { color: theme.muted } },
+                        "\u2192 ",
+                        versionName(form) || '—')),
+                    React.createElement(Field, { label: "Date released" },
+                        React.createElement("input", { type: "date", value: form.releaseDate, onChange: e => setForm(f => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })),
+                    React.createElement(Field, { label: "Status" },
+                        React.createElement("select", { value: form.status, onChange: e => setForm(f => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" }, STATUSES.map(s => React.createElement("option", { key: s.value, value: s.value }, s.value)))),
+                    React.createElement("label", { className: "flex items-center gap-2 text-sm cursor-pointer" },
+                        React.createElement("input", { type: "checkbox", checked: form.status === 'Wishlist', onChange: e => setForm(f => ({ ...f, status: e.target.checked ? 'Wishlist' : 'Unowned' })), className: "w-4 h-4" }),
+                        "Add to my Wishlist"),
+                    React.createElement("div", null,
+                        React.createElement("span", { className: "block text-[11px] mb-1.5", style: { color: theme.muted } }, form.copies.length === 0 ? 'Not in your collection yet' : `${form.copies.length} cop${form.copies.length === 1 ? 'y' : 'ies'} owned`),
+                        React.createElement("div", { className: "space-y-2" }, form.copies.map((copy, idx) => (React.createElement("div", { key: copy.id, className: "flex gap-1.5 items-start p-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                            React.createElement("div", { className: "flex-1 grid grid-cols-3 gap-1.5" },
+                                React.createElement(FreeformDateInput, { value: copy.date, onChange: v => updateCopy(idx, 'date', v), compact: true }),
+                                React.createElement("input", { type: "text", placeholder: "Price", value: copy.price, onChange: e => updateCopy(idx, 'price', e.target.value), className: "px-2 py-1.5 rounded text-xs" }),
+                                React.createElement(SelectOrNew, { value: copy.seller, options: sellerOptions, placeholder: "Seller", onChange: v => updateCopy(idx, 'seller', v), compact: true })),
+                            React.createElement("button", { type: "button", onClick: () => removeCopy(idx), className: "p-1.5 shrink-0", style: { color: '#D98B72' } },
+                                React.createElement(X, { size: 14 })))))),
+                        React.createElement("button", { type: "button", onClick: addCopy, className: "mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium", style: { background: theme.accent, color: '#1A1410' } },
+                            React.createElement(Plus, { size: 12 }),
+                            " ",
+                            form.copies.length === 0 ? 'Add to my collection' : 'Add another copy')),
+                    React.createElement(Field, { label: "Date sold (optional)" },
+                        React.createElement("input", { type: "date", value: form.dateSold, onChange: e => setForm(f => ({ ...f, dateSold: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })),
+                    React.createElement(Field, { label: "Notes" },
+                        React.createElement("textarea", { value: form.notes, onChange: e => setForm(f => ({ ...f, notes: e.target.value })), rows: 2, className: "w-full px-2.5 py-2 rounded-lg text-sm resize-none" }))),
+                React.createElement("div", { className: "flex gap-2 mt-5" },
+                    editingId && (React.createElement("button", { type: "button", onClick: () => deleteCard(editingId), className: "px-3 py-2 rounded-full text-sm flex items-center gap-1", style: { color: '#D98B72' } },
+                        React.createElement(Trash2, { size: 14 }),
+                        " Delete")),
+                    React.createElement("button", { type: "button", onClick: saveForm, className: "flex-1 py-2 rounded-full text-sm font-medium", style: { background: theme.accent, color: '#1A1410' } }, editingId ? 'Save changes' : 'Add photocard'))))),
+        selectedCard && !modalMode && (() => {
+            const badge = cardBadge(selectedCard);
+            const spent = sumSpent(selectedCard);
+            return (React.createElement("div", { className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4", style: { background: 'rgba(0,0,0,0.6)' }, onClick: () => setSelectedCard(null) },
+                React.createElement("div", { onClick: e => e.stopPropagation(), className: "w-full sm:max-w-md max-h-[90vh] overflow-y-auto pc-scroll rounded-t-2xl sm:rounded-2xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                    React.createElement("div", { className: "relative" },
+                        React.createElement("div", { className: "flex items-center justify-end px-4 pt-4 pb-3" },
+                            React.createElement("button", { onClick: () => setSelectedCard(null), className: "w-8 h-8 rounded-full flex items-center justify-center", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                                React.createElement(X, { size: 16 }))),
+                        React.createElement("div", { style: { aspectRatio: '55 / 85', maxHeight: '55vh', margin: '0 auto 12px', background: theme.surfaceAlt, position: 'relative', borderRadius: 16 }, className: "overflow-hidden flex items-center justify-center" },
+                            (detailSide === 'front' ? selectedCard.frontImage : selectedCard.backImage) ? (React.createElement(CroppedImage, { src: resolveImageUrl(detailSide === 'front' ? selectedCard.frontImage : selectedCard.backImage), crop: selectedCard.imageCrop, onError: e => { e.target.style.display = 'none'; } })) : (React.createElement("div", { className: "flex flex-col items-center gap-1", style: { color: theme.muted } },
+                                React.createElement(ImageIcon, { size: 28 }),
+                                React.createElement("span", { className: "text-xs" },
+                                    "No ",
+                                    detailSide,
+                                    " image"))),
+                            isOwner && selectedCard.frontImage && (React.createElement("button", { onClick: () => openQuickCrop(selectedCard), className: "absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center", style: { background: 'rgba(0,0,0,0.5)' }, title: "Adjust crop" },
+                                React.createElement(Pencil, { size: 14, color: "#fff" }))),
+                            selectedCard.backImage && (React.createElement("div", { className: "absolute bottom-3 left-1/2 -translate-x-1/2 flex rounded-full overflow-hidden text-xs", style: { border: `1px solid ${theme.border}` } },
+                                React.createElement("button", { onClick: () => setDetailSide('front'), className: "px-3 py-1", style: { background: detailSide === 'front' ? theme.accent : theme.surfaceAlt, color: detailSide === 'front' ? '#1A1410' : theme.text } }, "Front"),
+                                React.createElement("button", { onClick: () => setDetailSide('back'), className: "px-3 py-1", style: { background: detailSide === 'back' ? theme.accent : theme.surfaceAlt, color: detailSide === 'back' ? '#1A1410' : theme.text } }, "Back"))))),
+                    React.createElement("div", { className: "p-5" },
+                        React.createElement("div", { className: "flex items-start justify-between mb-1 gap-2" },
+                            React.createElement("h2", { className: "pc-font-display text-xl", style: { fontWeight: 600 } }, selectedCard.member || selectedCard.group),
+                            badge && (React.createElement("span", { className: "px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 mt-1", style: { background: badge.color, color: '#1A1410' } }, badge.label))),
+                        React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } },
+                            selectedCard.group,
+                            selectedCard.album ? ` · ${selectedCard.album}` : '',
+                            selectedCard.era ? ` · ${selectedCard.era}` : ''),
+                        versionName(selectedCard) && (React.createElement("p", { className: "text-sm mb-2 font-medium" }, versionName(selectedCard))),
+                        React.createElement("dl", { className: "grid grid-cols-2 gap-y-2 text-sm mb-4" },
+                            React.createElement(DetailRow, { label: "Item type", value: selectedCard.itemType }),
+                            React.createElement(DetailRow, { label: "Product / format", value: selectedCard.productFormat }),
+                            React.createElement(DetailRow, { label: "Source / retailer", value: selectedCard.source }),
+                            React.createElement(DetailRow, { label: "Card type / benefit", value: selectedCard.category }),
+                            React.createElement(DetailRow, { label: "Character series", value: selectedCard.characterSeries }),
+                            React.createElement(DetailRow, { label: "Character", value: selectedCard.character }),
+                            React.createElement(DetailRow, { label: "Released", value: formatFlexDate(selectedCard.releaseDate) }),
+                            React.createElement(DetailRow, { label: "Sold", value: formatFlexDate(selectedCard.dateSold) }),
+                            React.createElement(DetailRow, { label: "Total spent", value: spent ? spent.toFixed(2) : '' })),
+                        (selectedCard.copies || []).length > 0 && (React.createElement("div", { className: "mb-4" },
+                            React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Copies owned"),
+                            React.createElement("div", { className: "space-y-1.5" }, selectedCard.copies.map((c, i) => (React.createElement("div", { key: c.id, className: "text-sm px-2.5 py-2 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                                React.createElement("span", { className: "font-medium" }, i + 1),
+                                " \u2014 ",
+                                c.date || 'no date',
+                                c.price ? ` · ${c.price}` : '',
+                                c.seller ? ` · ${c.seller}` : '')))))),
+                        selectedCard.notes && React.createElement("p", { className: "text-sm mb-4", style: { color: theme.muted } }, selectedCard.notes),
+                        isOwner && (React.createElement("div", { className: "flex gap-2" },
+                            React.createElement("button", { onClick: () => openEdit(selectedCard), className: "flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1.5", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } },
+                                React.createElement(Pencil, { size: 14 }),
+                                " Edit"),
+                            React.createElement("button", { onClick: () => deleteCard(selectedCard.id), className: "py-2 px-4 rounded-full text-sm flex items-center gap-1.5", style: { color: '#D98B72', border: `1px solid ${theme.border}` } },
+                                React.createElement(Trash2, { size: 14 }),
+                                " Delete")))))));
+        })(),
+        cropCard && (React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", style: { background: 'rgba(0,0,0,0.75)' }, onClick: closeQuickCrop },
+            React.createElement("div", { onClick: e => e.stopPropagation(), className: "w-full sm:max-w-sm rounded-2xl p-5", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                React.createElement("div", { className: "flex items-center justify-between mb-4" },
+                    React.createElement("h2", { className: "pc-font-display text-lg", style: { fontWeight: 600 } }, "Adjust crop"),
+                    React.createElement("button", { type: "button", onClick: closeQuickCrop },
+                        React.createElement(X, { size: 18 }))),
+                React.createElement(ImageCropper, { src: resolveImageUrl(cropCard.frontImage), crop: cropDraft, onChange: setCropDraft }),
+                React.createElement("div", { className: "flex gap-2 mt-5" },
+                    React.createElement("button", { type: "button", onClick: closeQuickCrop, className: "flex-1 py-2 rounded-full text-sm font-medium", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Cancel"),
+                    React.createElement("button", { type: "button", onClick: saveQuickCrop, className: "flex-1 py-2 rounded-full text-sm font-medium", style: { background: theme.accent, color: '#1A1410' } }, "Save"))))),
+        selectMode && selectedIds.size > 0 && (React.createElement("div", { className: "fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-4 py-3", style: { background: theme.surface, borderTop: `1px solid ${theme.border}` } },
+            React.createElement("span", { className: "text-sm font-medium" },
+                selectedIds.size,
+                " selected"),
+            React.createElement("div", { className: "flex gap-2" },
+                React.createElement("button", { onClick: () => setBulkOpen(true), className: "px-3 py-1.5 rounded-full text-xs font-medium", style: { background: theme.accent, color: '#1A1410' } }, "Bulk edit"),
+                React.createElement("button", { onClick: bulkDelete, className: "px-3 py-1.5 rounded-full text-xs", style: { color: '#D98B72', border: `1px solid ${theme.border}` } }, "Delete")))),
+        bulkOpen && (React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", style: { background: 'rgba(0,0,0,0.75)' }, onClick: () => setBulkOpen(false) },
+            React.createElement("div", { onClick: e => e.stopPropagation(), className: "w-full sm:max-w-sm rounded-2xl p-5 max-h-[85vh] overflow-y-auto pc-scroll", style: { background: theme.surface, border: `1px solid ${theme.border}` } },
+                React.createElement("div", { className: "flex items-center justify-between mb-2" },
+                    React.createElement("h2", { className: "pc-font-display text-lg", style: { fontWeight: 600 } },
+                        "Bulk edit ",
+                        selectedIds.size,
+                        " card",
+                        selectedIds.size !== 1 ? 's' : ''),
+                    React.createElement("button", { type: "button", onClick: () => setBulkOpen(false) },
+                        React.createElement(X, { size: 18 }))),
+                React.createElement("p", { className: "text-xs mb-3", style: { color: theme.muted } }, "Leave a field blank to keep each card's existing value there."),
+                React.createElement("div", { className: "space-y-3" },
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Group", value: bulkForm.group, options: groups, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, group: v })) }),
+                        React.createElement(SelectOrNew, { label: "Member", value: bulkForm.member, options: allMembers, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, member: v })) })),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Release / collection", value: bulkForm.album, options: allAlbums, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, album: v })) }),
+                        React.createElement(SelectOrNew, { label: "Era", value: bulkForm.era, options: eras, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, era: v })) })),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Item type", value: bulkForm.itemType, options: itemTypeOptions, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, itemType: v })) }),
+                        React.createElement(SelectOrNew, { label: "Product / format", value: bulkForm.productFormat, options: productFormatOptions, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, productFormat: v })) })),
+                    React.createElement(TagMultiSelect, { label: "Version / edition", values: bulkForm.versionDetail, options: versionDetailOptions, onChange: v => setBulkForm(f => ({ ...f, versionDetail: v })), placeholder: "Leave blank to skip" }),
+                    React.createElement(SelectOrNew, { label: "Source / retailer / partner", value: bulkForm.source, options: sourceOptions, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, source: v })) }),
+                    React.createElement(SelectOrNew, { label: "Card type / benefit", value: bulkForm.category, options: categories, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, category: v })) }),
+                    React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                        React.createElement(SelectOrNew, { label: "Character series", value: bulkForm.characterSeries, options: characterSeriesOptions, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, characterSeries: v })) }),
+                        React.createElement(SelectOrNew, { label: "Character", value: bulkForm.character, options: characterOptions, placeholder: "Leave blank to skip", onChange: v => setBulkForm(f => ({ ...f, character: v })) })),
+                    React.createElement(Field, { label: "Date released" },
+                        React.createElement("input", { type: "date", value: bulkForm.releaseDate, onChange: e => setBulkForm(f => ({ ...f, releaseDate: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })),
+                    React.createElement(Field, { label: "Status" },
+                        React.createElement("select", { value: bulkForm.status, onChange: e => setBulkForm(f => ({ ...f, status: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" },
+                            React.createElement("option", { value: "" }, "Leave unchanged"),
+                            STATUSES.map(s => React.createElement("option", { key: s.value, value: s.value }, s.value)))),
+                    React.createElement(Field, { label: "Date sold (optional)" },
+                        React.createElement("input", { type: "date", value: bulkForm.dateSold, onChange: e => setBulkForm(f => ({ ...f, dateSold: e.target.value })), className: "w-full px-2.5 py-2 rounded-lg text-sm" })),
+                    React.createElement(Field, { label: "Notes" },
+                        React.createElement("textarea", { value: bulkForm.notes, onChange: e => setBulkForm(f => ({ ...f, notes: e.target.value })), rows: 2, placeholder: "Leave blank to skip", className: "w-full px-2.5 py-2 rounded-lg text-sm resize-none" }))),
+                React.createElement("button", { type: "button", onClick: applyBulkEdit, className: "w-full py-2 rounded-full text-sm font-medium mt-5", style: { background: theme.accent, color: '#1A1410' } },
+                    "Apply to ",
+                    selectedIds.size,
+                    " card",
+                    selectedIds.size !== 1 ? 's' : '')))),
+        manageOpen && (React.createElement("div", { className: "fixed inset-0 z-50", style: { background: 'rgba(0,0,0,0.6)', opacity: manageDrawerVisible ? 1 : 0, transition: 'opacity 220ms ease-out' }, onClick: closeManage },
+            React.createElement("div", { onClick: e => e.stopPropagation(), className: "fixed top-0 right-0 h-full w-full sm:w-[420px] overflow-y-auto pc-scroll p-5", style: {
+                    background: theme.surface,
+                    borderLeft: `1px solid ${theme.border}`,
+                    transform: manageDrawerVisible ? 'translateX(0)' : 'translateX(100%)',
+                    transition: 'transform 220ms ease-out',
+                } },
+                React.createElement("div", { className: "flex items-center justify-between mb-2" },
+                    React.createElement("h2", { className: "pc-font-display text-lg", style: { fontWeight: 600 } }, "Manage values"),
+                    React.createElement("button", { type: "button", onClick: closeManage },
+                        React.createElement(X, { size: 18 }))),
+                React.createElement("p", { className: "text-xs mb-4", style: { color: theme.muted } }, "Rename fixes it everywhere at once (merges it if the new name already exists). Delete clears it from every card that has it."),
+                React.createElement(ValueManagerSection, { title: "Release / collection", usage: albumUsage, onRename: (o, n) => renameFieldValue('album', o, n), onDelete: v => deleteFieldValue('album', v) }),
+                React.createElement(ValueManagerSection, { title: "Source / retailer / partner", usage: sourceUsage, onRename: (o, n) => renameFieldValue('source', o, n), onDelete: v => deleteFieldValue('source', v) }),
+                React.createElement(ValueManagerSection, { title: "Item type", usage: itemTypeUsage, onRename: (o, n) => renameFieldValue('itemType', o, n), onDelete: v => deleteFieldValue('itemType', v) }),
+                React.createElement(ValueManagerSection, { title: "Product / format", usage: productFormatUsage, onRename: (o, n) => renameFieldValue('productFormat', o, n), onDelete: v => deleteFieldValue('productFormat', v) }),
+                React.createElement(ValueManagerSection, { title: "Version / edition", usage: versionTagUsage, onRename: (o, n) => renameFieldValue('versionDetail', o, n), onDelete: v => deleteFieldValue('versionDetail', v) }),
+                React.createElement(ValueManagerSection, { title: "Character series", usage: characterSeriesUsage, onRename: (o, n) => renameFieldValue('characterSeries', o, n), onDelete: v => deleteFieldValue('characterSeries', v) }),
+                React.createElement(ValueManagerSection, { title: "Character", usage: characterUsage, onRename: (o, n) => renameFieldValue('character', o, n), onDelete: v => deleteFieldValue('character', v) }),
+                React.createElement(ValueManagerSection, { title: "Card type / benefit", usage: categoryUsage, onRename: (o, n) => renameFieldValue('category', o, n), onDelete: v => deleteFieldValue('category', v) }),
+                albumUsage.length === 0 && sourceUsage.length === 0 && itemTypeUsage.length === 0 && productFormatUsage.length === 0 && versionTagUsage.length === 0 && categoryUsage.length === 0 && characterSeriesUsage.length === 0 && characterUsage.length === 0 && (React.createElement("p", { className: "text-sm text-center py-6", style: { color: theme.muted } }, "Nothing to manage yet."))))),
+        toast && (React.createElement("div", { className: "fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm z-50 text-center", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}`, maxWidth: '90vw' } }, toast))));
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(/* @__PURE__ */ React.createElement(AppShell, null));
+</script>
+</body>
+</html>
