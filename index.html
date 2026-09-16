@@ -89,39 +89,43 @@ function AppShell() {
     /* @__PURE__ */ React.createElement(LogInOut, { size: 14 })
   )), /* @__PURE__ */ React.createElement(PhotocardTracker, { isOwner }));
 }
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = PhotocardTracker;
 const STORAGE_KEY = 'photocards-v2';
 const CUSTOM_LISTS_KEY = 'photocards-lists-v1';
 const SAVED_VIEWS_KEY = 'photocards-views-v1';
 // "Card Type / Benefit" (legacy key: category) — answers why/how a card was issued.
 const DEFAULT_CATEGORIES = [
-    'Album Inclusion', 'POB', 'Lucky Draw', 'Holo Benefit', 'Venue Limited', 'Fansign',
-    'Video Call / Fancall', 'Cafe Event', 'Broadcast', 'Retail Exclusive', 'Pop-up Benefit', 'Merch Inclusion',
-    'Membership Exclusive', 'Japan Fan Club Exclusive', 'Tour / Concert Benefit', 'Fanmeeting Benefit',
-    'Collaboration Benefit', 'Special Event', 'Other',
+    'Album Inclusion', 'Broadcast', 'Cafe Event', 'Collaboration Benefit', 'Fansign', 'Fanmeeting Benefit',
+    'Holo Benefit', 'Japan Fan Club Exclusive', 'Lucky Draw', 'Membership Exclusive', 'Merch Inclusion',
+    'POB', 'Pop-up Benefit', 'Retail Exclusive', 'Special Event', 'Tour / Concert Benefit',
+    'Venue Limited', 'Video Call / Fancall', 'Other',
 ];
 // "Source / Retailer / Distributor / Partner" — who sold, distributed, hosted, or issued the benefit.
 const HARDCODED_SOURCES = [
-    'ATEEZ Official / KQ', 'Japan Fan Club', 'Synnara', 'Music Korea', 'Music Art', 'WithDrama', 'YES24',
-    'HELLO82', 'MMT / MyMusicTaste', 'KTOWN4U', 'Mokketshop', 'Everline', 'KPOPSTORE', 'Wonderwall',
-    'Makestar', 'Apple Music', 'Soundwave', 'WithMUU', 'DearMyMuse', 'Target', 'Walmart',
-    'Barnes & Noble', 'TOKTOQ', 'HMV Japan', 'Rakuten Japan', 'Tower Records Japan', 'EMART',
-    'Jump Up Ent', 'HELLOLIVE', 'FNAC', 'Nacific', 'DICON', 'Pott', 'Silent Soul', 'HIGHER', 'Fromm Store',
-].sort();
-// "Item Type" — the actual physical collectible/object.
-const DEFAULT_ITEM_TYPES = [
-    'Photocard', 'ID Photo', 'Postcard', 'Photo Set', 'Polaroid', 'Trading Card', 'Sticker',
-    'Film Photo', 'Bookmark', 'Mini Poster', 'Other',
+    'ATEEZ Official / KQ',
+    'Apple Music', 'Barnes & Noble', 'DICON', 'DearMyMuse', 'EMART', 'Everline', 'FNAC', 'Fromm Store',
+    'HELLO82', 'HELLOLIVE', 'HIGHER', 'HMV Japan', 'Japan Fan Club', 'Jump Up Ent', 'KPOPSTORE', 'KTOWN4U',
+    'MMT / MyMusicTaste', 'Makestar', 'Mokketshop', 'Music Art', 'Music Korea', 'Nacific', 'Pott', 'Rakuten Japan',
+    'Silent Soul', 'Soundwave', 'Synnara', 'TOKTOQ', 'Target', 'Tower Records Japan', 'Walmart', 'WithDrama',
+    'WithMUU', 'Wonderwall', 'YES24', 'Other',
 ];
-// "Product / Format" — the product/package the collectible came from.
+// "Item Type" — the actual physical collectible/object. Photocard is the default and stays first.
+const DEFAULT_ITEM_TYPES = [
+    'Photocard',
+    'Bookmark', 'Film Photo', 'ID Photo', 'Mini Poster', 'Photo Set', 'Polaroid', 'Postcard', 'Sticker',
+    'Trading Card', 'Other',
+];
+// "Product / Format" — the product/package the collectible came from. Keep the three common album formats first.
 const DEFAULT_PRODUCT_FORMATS = [
-    'Photobook Album', 'POCA / Platform Album', 'Digipak', 'Jewel Case', 'CD Player Album',
-    'Vinyl / LP', 'Photobook', "Season's Greetings", 'Membership Kit', 'Japan Fan Club Membership',
-    'DVD / Blu-ray', 'Birthday MD', 'Tour / Concert Merch', 'Fanmeeting Merch', 'Pop-up Merch',
-    'Character Merch', 'Official Merch / MD', 'Collaboration Product', 'Trading Card / Photocard Pack',
-    'Photo Set', 'ID Photo Set', 'HIGHER TIMEPIECE', 'Other',
+    'Photobook Album', 'POCAALBUM', 'Digipack',
+    'Birthday MD', 'CD Player Album', 'Character Merch', 'Collaboration Product', 'DVD / Blu-ray',
+    'Fanmeeting Merch', 'HIGHER TIMEPIECE', 'ID Photo Set', 'Japan Fan Club Membership', 'Jewel Case',
+    'Membership Kit', 'Official Merch / MD', 'Photo Set', 'Photobook', 'Pop-up Merch', "Season's Greetings",
+    'Tour / Concert Merch', 'Trading Card / Photocard Pack', 'Vinyl / LP', 'Other',
+];
+// "Version / Edition" — a pure differentiator, separate from Card Type / Benefit.
+const DEFAULT_VERSION_DETAILS = [
+    '1.0', '2.0', '3.0', '1', '2', '3', 'A', 'Z', 'Diary', 'Red', 'Pink', 'Limited', 'Standard', 'Exclusive',
+    'Hongjoong', 'Jongho', 'Mingi', 'San', 'Seonghwa', 'Wooyoung', 'Yeosang', 'Yunho',
 ];
 // "Character Series" and "Character" — which character IP / specific character.
 const DEFAULT_CHARACTER_SERIES = ['ANITEEZ', 'MIGHTEEZ', 'Birthday Characters'];
@@ -1079,23 +1083,31 @@ function PhotocardTracker({ isOwner = true } = {}) {
         setToast(`Deleted "${val}".`);
         setTimeout(() => setToast(''), 2500);
     }
+    const orderedWithExtras = useCallback((defaults, extras) => {
+        const defaultSet = new Set(defaults);
+        const customExtras = [...new Set(extras.filter(Boolean).filter(v => !defaultSet.has(v)))].sort((a, b) => a.localeCompare(b));
+        const otherIndex = defaults.indexOf('Other');
+        if (otherIndex === -1)
+            return [...defaults, ...customExtras];
+        return [...defaults.slice(0, otherIndex), ...customExtras, 'Other'];
+    }, []);
     const categories = useMemo(() => {
-        const existing = new Set(customCategories);
+        const extras = [...customCategories];
         cards.forEach(c => { if (c.category)
-            existing.add(c.category); });
-        return [...existing].sort();
-    }, [cards, customCategories]);
+            extras.push(c.category); });
+        return orderedWithExtras(DEFAULT_CATEGORIES, extras);
+    }, [cards, customCategories, orderedWithExtras]);
     const sourceOptions = useMemo(() => {
-        const all = new Set(customSources);
+        const extras = [...customSources];
         cards.forEach(c => { if (c.source)
-            all.add(c.source); });
-        return [...all].sort();
-    }, [cards, customSources]);
+            extras.push(c.source); });
+        return orderedWithExtras(HARDCODED_SOURCES, extras);
+    }, [cards, customSources, orderedWithExtras]);
     const versionDetailOptions = useMemo(() => {
-        const set = new Set();
-        cards.forEach(c => toTags(c.versionDetail).forEach(t => set.add(t)));
-        return [...set].sort();
-    }, [cards]);
+        const extras = [];
+        cards.forEach(c => toTags(c.versionDetail).forEach(t => extras.push(t)));
+        return orderedWithExtras(DEFAULT_VERSION_DETAILS, extras);
+    }, [cards, orderedWithExtras]);
     const sellerOptions = useMemo(() => {
         const set = new Set();
         cards.forEach(c => (c.copies || []).forEach(cp => { if (cp.seller)
@@ -1103,17 +1115,17 @@ function PhotocardTracker({ isOwner = true } = {}) {
         return [...set].sort();
     }, [cards]);
     const itemTypeOptions = useMemo(() => {
-        const all = new Set(customItemTypes);
+        const extras = [...customItemTypes];
         cards.forEach(c => { if (c.itemType)
-            all.add(c.itemType); });
-        return [...all].sort();
-    }, [cards, customItemTypes]);
+            extras.push(c.itemType); });
+        return orderedWithExtras(DEFAULT_ITEM_TYPES, extras);
+    }, [cards, customItemTypes, orderedWithExtras]);
     const productFormatOptions = useMemo(() => {
-        const all = new Set(customProductFormats);
+        const extras = [...customProductFormats];
         cards.forEach(c => { if (c.productFormat)
-            all.add(c.productFormat); });
-        return [...all].sort();
-    }, [cards, customProductFormats]);
+            extras.push(c.productFormat); });
+        return orderedWithExtras(DEFAULT_PRODUCT_FORMATS, extras);
+    }, [cards, customProductFormats, orderedWithExtras]);
     const characterSeriesOptions = useMemo(() => {
         const all = new Set(DEFAULT_CHARACTER_SERIES);
         cards.forEach(c => { if (c.characterSeries)
@@ -2284,7 +2296,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
                             React.createElement(SelectOrNew, { label: "Release / Collection", value: form.album, options: formAlbums, placeholder: "Album / collection name", onChange: handleAlbumChange }),
                             React.createElement(SelectOrNew, { label: "Item Type", value: form.itemType, options: itemTypeOptions, placeholder: "e.g. Photocard", onChange: v => setForm(f => ({ ...f, itemType: v })) }),
                             React.createElement(SelectOrNew, { label: "Card Type / Benefit", value: form.category, options: categories, placeholder: "e.g. POB, Lucky Draw", onChange: v => setForm(f => ({ ...f, category: v })) }),
-                            React.createElement(SelectOrNew, { label: "Product / Format", value: form.productFormat, options: productFormatOptions, placeholder: "e.g. POCA Album", onChange: v => setForm(f => ({ ...f, productFormat: v })) }),
+                            React.createElement(SelectOrNew, { label: "Product / Format", value: form.productFormat, options: productFormatOptions, placeholder: "e.g. POCAALBUM", onChange: v => setForm(f => ({ ...f, productFormat: v })) }),
                             React.createElement(SelectOrNew, { label: "Source / Retailer / Partner", value: form.source, options: sourceOptions, placeholder: "Retailer, platform, partner", onChange: v => setForm(f => ({ ...f, source: v })) }),
                             React.createElement(TagMultiSelect, { label: "Version / Edition", values: toTags(form.versionDetail), options: versionDetailOptions, onChange: v => setForm(f => ({ ...f, versionDetail: v })), placeholder: "e.g. 1.0, A, Pink" }),
                             React.createElement(Field, { label: "Date released" },
