@@ -91,6 +91,7 @@ function AppShell() {
 }
 const STORAGE_KEY = "photocards-v2";
 const CUSTOM_LISTS_KEY = "photocards-lists-v1";
+const SAVED_VIEWS_KEY = "photocards-views-v1";
 const DEFAULT_CATEGORIES = [
   "Album Inclusion",
   "POB",
@@ -783,23 +784,53 @@ function CappedList({ items, initialCount = 6, renderRow }) {
   const hiddenCount = items.length - visible.length;
   return /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, visible.map(renderRow), hiddenCount > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setExpanded(true), className: "w-full text-center text-xs py-1.5", style: { color: theme.accent } }, "Show ", hiddenCount, " more"));
 }
+function ChipMultiSelect({ label, options, selected, onToggle, initialCount = 12 }) {
+  const [expanded, setExpanded] = useState(false);
+  if (options.length === 0) return null;
+  const visible = expanded ? options : options.slice(0, initialCount);
+  const hiddenCount = options.length - visible.length;
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, label), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, visible.map((opt) => {
+    const active = selected.has(opt);
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: opt,
+        type: "button",
+        onClick: () => onToggle(opt),
+        className: "px-2.5 py-1 rounded-full text-xs font-medium",
+        style: { background: active ? theme.accent : theme.surfaceAlt, color: active ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` }
+      },
+      opt
+    );
+  }), hiddenCount > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setExpanded(true), className: "px-2.5 py-1 rounded-full text-xs font-medium", style: { color: theme.accent } }, "+", hiddenCount, " more")));
+}
 function PhotocardTracker({ isOwner = true } = {}) {
   const [cards, setCards] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState("");
   const [search, setSearch] = useState("");
+  const [searchField, setSearchField] = useState("all");
   const [filterOwned, setFilterOwned] = useState("");
   const [filterGroup, setFilterGroup] = useState("");
-  const [filterMember, setFilterMember] = useState("");
-  const [filterAlbum, setFilterAlbum] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterSource, setFilterSource] = useState("");
+  const [selectedMemberFilters, setSelectedMemberFilters] = useState(() => /* @__PURE__ */ new Set());
+  const [selectedAlbumFilters, setSelectedAlbumFilters] = useState(() => /* @__PURE__ */ new Set());
+  const [selectedCategoryFilters, setSelectedCategoryFilters] = useState(() => /* @__PURE__ */ new Set());
+  const [selectedSourceFilters, setSelectedSourceFilters] = useState(() => /* @__PURE__ */ new Set());
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState(() => /* @__PURE__ */ new Set());
   const [filterVersionTag, setFilterVersionTag] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [filterItemType, setFilterItemType] = useState("");
   const [filterProductFormat, setFilterProductFormat] = useState("");
   const [filterCharacterSeries, setFilterCharacterSeries] = useState("");
   const [filterCharacter, setFilterCharacter] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [purchaseDateFrom, setPurchaseDateFrom] = useState("");
+  const [purchaseDateTo, setPurchaseDateTo] = useState("");
+  const [gridDensity, setGridDensity] = useState("comfortable");
+  const [savedViews, setSavedViews] = useState([]);
+  const [savingView, setSavingView] = useState(false);
+  const [savedViewName, setSavedViewName] = useState("");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [sortBy, setSortBy] = useState("recent");
   const [visibleCount, setVisibleCount] = useState(60);
   const [modalMode, setModalMode] = useState(null);
@@ -914,6 +945,15 @@ function PhotocardTracker({ isOwner = true } = {}) {
           await storage.set(CUSTOM_LISTS_KEY, JSON.stringify({ sources: HARDCODED_SOURCES, categories: DEFAULT_CATEGORIES, itemTypes: DEFAULT_ITEM_TYPES, productFormats: DEFAULT_PRODUCT_FORMATS }), false);
         } catch (e2) {
         }
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storage.get(SAVED_VIEWS_KEY, false);
+        if (res && res.value) setSavedViews(JSON.parse(res.value));
+      } catch (e) {
       }
     })();
   }, []);
@@ -1138,24 +1178,52 @@ function PhotocardTracker({ isOwner = true } = {}) {
     if (statsCardFilter) {
       return cards.filter((c) => statsCardFilter.has(c.id));
     }
+    const minP = priceMin !== "" ? parseFloat(priceMin) : null;
+    const maxP = priceMax !== "" ? parseFloat(priceMax) : null;
     let list = cards.filter((c) => {
       const owned = isOwned(c);
       if (filterOwned === "owned" && !owned) return false;
       if (filterOwned === "missing" && owned) return false;
       if (filterGroup && c.group !== filterGroup) return false;
-      if (filterMember && c.member !== filterMember) return false;
-      if (filterAlbum && c.album !== filterAlbum) return false;
-      if (filterCategory && c.category !== filterCategory) return false;
-      if (filterSource && c.source !== filterSource) return false;
+      if (selectedMemberFilters.size > 0 && !selectedMemberFilters.has(c.member)) return false;
+      if (selectedAlbumFilters.size > 0 && !selectedAlbumFilters.has(c.album)) return false;
+      if (selectedCategoryFilters.size > 0 && !selectedCategoryFilters.has(c.category)) return false;
+      if (selectedSourceFilters.size > 0 && !selectedSourceFilters.has(c.source)) return false;
+      if (selectedStatusFilters.size > 0 && !selectedStatusFilters.has(c.status)) return false;
       if (filterVersionTag && !toTags(c.versionDetail).includes(filterVersionTag)) return false;
-      if (filterStatus && c.status !== filterStatus) return false;
       if (filterItemType && c.itemType !== filterItemType) return false;
       if (filterProductFormat && c.productFormat !== filterProductFormat) return false;
       if (filterCharacterSeries && c.characterSeries !== filterCharacterSeries) return false;
       if (filterCharacter && c.character !== filterCharacter) return false;
+      if (minP !== null || maxP !== null) {
+        const copies = c.copies || [];
+        const priceMatch = copies.some((cp) => {
+          const p = parsePrice(cp.price);
+          if (minP !== null && p < minP) return false;
+          if (maxP !== null && p > maxP) return false;
+          return true;
+        });
+        if (!priceMatch) return false;
+      }
+      if (purchaseDateFrom || purchaseDateTo) {
+        const copies = c.copies || [];
+        const dateMatch = copies.some((cp) => {
+          if (!cp.date) return false;
+          if (purchaseDateFrom && cp.date < purchaseDateFrom) return false;
+          if (purchaseDateTo && cp.date > purchaseDateTo) return false;
+          return true;
+        });
+        if (!dateMatch) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
-        const hay = [c.group, c.member, c.album, c.category, c.source, c.itemType, c.productFormat, c.characterSeries, c.character, ...toTags(c.versionDetail), c.notes, ...(c.copies || []).map((cp) => cp.seller)].join(" ").toLowerCase();
+        let hay;
+        if (searchField === "member") hay = (c.member || "").toLowerCase();
+        else if (searchField === "album") hay = (c.album || "").toLowerCase();
+        else if (searchField === "category") hay = (c.category || "").toLowerCase();
+        else if (searchField === "source") hay = (c.source || "").toLowerCase();
+        else if (searchField === "notes") hay = (c.notes || "").toLowerCase();
+        else hay = [c.group, c.member, c.album, c.category, c.source, c.itemType, c.productFormat, c.characterSeries, c.character, ...toTags(c.versionDetail), c.notes, ...(c.copies || []).map((cp) => cp.seller)].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1183,9 +1251,20 @@ function PhotocardTracker({ isOwner = true } = {}) {
         list = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     }
     return list;
-  }, [cards, statsCardFilter, filterOwned, filterGroup, filterMember, filterAlbum, filterCategory, filterSource, filterVersionTag, filterStatus, filterItemType, filterProductFormat, filterCharacterSeries, filterCharacter, search, sortBy]);
+  }, [cards, statsCardFilter, filterOwned, filterGroup, selectedMemberFilters, selectedAlbumFilters, selectedCategoryFilters, selectedSourceFilters, selectedStatusFilters, filterVersionTag, filterItemType, filterProductFormat, filterCharacterSeries, filterCharacter, priceMin, priceMax, purchaseDateFrom, purchaseDateTo, search, searchField, sortBy]);
   const visible = filtered.slice(0, visibleCount);
-  const activeFilterCount = [filterGroup, filterMember, filterAlbum, filterCategory, filterSource, filterVersionTag, filterStatus, filterItemType, filterProductFormat, filterCharacterSeries, filterCharacter].filter(Boolean).length;
+  const activeFilterCount = [
+    filterGroup,
+    filterVersionTag,
+    filterItemType,
+    filterProductFormat,
+    filterCharacterSeries,
+    filterCharacter,
+    priceMin,
+    priceMax,
+    purchaseDateFrom,
+    purchaseDateTo
+  ].filter(Boolean).length + selectedMemberFilters.size + selectedAlbumFilters.size + selectedCategoryFilters.size + selectedSourceFilters.size + selectedStatusFilters.size;
   const ownedCount = useMemo(() => cards.filter(isOwned).length, [cards]);
   const totalPhysical = useMemo(() => cards.filter(isOwned).reduce((sum, c) => sum + (c.copies || []).length, 0), [cards]);
   const duplicateCount = Math.max(0, totalPhysical - ownedCount);
@@ -1595,18 +1674,137 @@ function PhotocardTracker({ isOwner = true } = {}) {
     e.target.value = "";
   }
   function clearFilters() {
+    clearFiltersOnly();
+    setSearch("");
+  }
+  function clearFiltersOnly() {
     setFilterGroup("");
-    setFilterMember("");
-    setFilterAlbum("");
-    setFilterCategory("");
-    setFilterSource("");
+    setSelectedMemberFilters(/* @__PURE__ */ new Set());
+    setSelectedAlbumFilters(/* @__PURE__ */ new Set());
+    setSelectedCategoryFilters(/* @__PURE__ */ new Set());
+    setSelectedSourceFilters(/* @__PURE__ */ new Set());
+    setSelectedStatusFilters(/* @__PURE__ */ new Set());
     setFilterVersionTag("");
-    setFilterStatus("");
     setFilterItemType("");
     setFilterProductFormat("");
     setFilterCharacterSeries("");
     setFilterCharacter("");
-    setSearch("");
+    setPriceMin("");
+    setPriceMax("");
+    setPurchaseDateFrom("");
+    setPurchaseDateTo("");
+  }
+  function toggleSetValue(setter, value) {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+    for (let j = 0; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        d[i][j] = a[i - 1] === b[j - 1] ? d[i - 1][j - 1] : 1 + Math.min(d[i - 1][j], d[i][j - 1], d[i - 1][j - 1]);
+      }
+    }
+    return d[m][n];
+  }
+  function didYouMeanSuggestions(query, pool) {
+    const q = query.toLowerCase();
+    if (!q) return [];
+    const scored = pool.filter(Boolean).map((val) => ({ val, dist: levenshtein(q, val.toLowerCase()) })).filter((s) => s.dist > 0 && s.dist <= Math.max(2, Math.ceil(q.length * 0.4)));
+    scored.sort((a, b) => a.dist - b.dist);
+    const seen = /* @__PURE__ */ new Set();
+    const out = [];
+    for (const s of scored) {
+      if (seen.has(s.val)) continue;
+      seen.add(s.val);
+      out.push(s.val);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }
+  function searchMatchLabel(card, query) {
+    const q = query.toLowerCase();
+    if ((card.member || "").toLowerCase().includes(q)) return "MEMBER MATCH";
+    if ((card.album || "").toLowerCase().includes(q)) return "RELEASE MATCH";
+    if ((card.category || "").toLowerCase().includes(q)) return "CARD TYPE MATCH";
+    if ((card.source || "").toLowerCase().includes(q)) return "SOURCE MATCH";
+    if ((card.notes || "").toLowerCase().includes(q)) return "NOTES MATCH";
+    return null;
+  }
+  function currentFilterSnapshot() {
+    return {
+      search,
+      searchField,
+      filterOwned,
+      filterGroup,
+      selectedMemberFilters: [...selectedMemberFilters],
+      selectedAlbumFilters: [...selectedAlbumFilters],
+      selectedCategoryFilters: [...selectedCategoryFilters],
+      selectedSourceFilters: [...selectedSourceFilters],
+      selectedStatusFilters: [...selectedStatusFilters],
+      filterVersionTag,
+      filterItemType,
+      filterProductFormat,
+      filterCharacterSeries,
+      filterCharacter,
+      priceMin,
+      priceMax,
+      purchaseDateFrom,
+      purchaseDateTo,
+      sortBy
+    };
+  }
+  async function saveCurrentView() {
+    const name = savedViewName.trim();
+    if (!name) return;
+    const next = [...savedViews, { id: uid(), name, snapshot: currentFilterSnapshot() }];
+    setSavedViews(next);
+    setSavingView(false);
+    setSavedViewName("");
+    try {
+      await storage.set(SAVED_VIEWS_KEY, JSON.stringify(next), false);
+    } catch (e) {
+    }
+    setToast("View saved.");
+    setTimeout(() => setToast(""), 2e3);
+  }
+  function applyView(view2) {
+    const s = view2.snapshot;
+    setSearch(s.search || "");
+    setSearchField(s.searchField || "all");
+    setFilterOwned(s.filterOwned || "");
+    setFilterGroup(s.filterGroup || "");
+    setSelectedMemberFilters(new Set(s.selectedMemberFilters || []));
+    setSelectedAlbumFilters(new Set(s.selectedAlbumFilters || []));
+    setSelectedCategoryFilters(new Set(s.selectedCategoryFilters || []));
+    setSelectedSourceFilters(new Set(s.selectedSourceFilters || []));
+    setSelectedStatusFilters(new Set(s.selectedStatusFilters || []));
+    setFilterVersionTag(s.filterVersionTag || "");
+    setFilterItemType(s.filterItemType || "");
+    setFilterProductFormat(s.filterProductFormat || "");
+    setFilterCharacterSeries(s.filterCharacterSeries || "");
+    setFilterCharacter(s.filterCharacter || "");
+    setPriceMin(s.priceMin || "");
+    setPriceMax(s.priceMax || "");
+    setPurchaseDateFrom(s.purchaseDateFrom || "");
+    setPurchaseDateTo(s.purchaseDateTo || "");
+    setSortBy(s.sortBy || "recent");
+    setVisibleCount(60);
+    setShowFilters(true);
+  }
+  async function deleteView(id) {
+    const next = savedViews.filter((v) => v.id !== id);
+    setSavedViews(next);
+    try {
+      await storage.set(SAVED_VIEWS_KEY, JSON.stringify(next), false);
+    } catch (e) {
+    }
   }
   return /* @__PURE__ */ React.createElement("div", { style: { background: theme.bg, color: theme.text, minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }, className: "w-full min-h-screen" }, /* @__PURE__ */ React.createElement("style", null, `
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
@@ -1617,7 +1815,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
         input, select, textarea { background: ${theme.surfaceAlt}; border: 1px solid ${theme.border}; color: ${theme.text}; }
         input::placeholder, textarea::placeholder { color: ${theme.muted}; }
         input:focus, select:focus, textarea:focus { outline: 2px solid ${theme.accent}; outline-offset: 1px; }
-      `), /* @__PURE__ */ React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-3 mb-5" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "pc-font-display text-2xl sm:text-3xl", style: { fontWeight: 600 } }, "Photocard Binder"), /* @__PURE__ */ React.createElement("p", { className: "text-xs italic mt-0.5", style: { color: theme.muted } }, "janis' photocard tracker because she can't stop buying ATEEZ pcs"), /* @__PURE__ */ React.createElement("p", { className: "text-sm mt-1", style: { color: theme.muted } }, ownedCount, " owned \xB7 ", cards.length, " tracked \xB7 ", totalPhysical, " physical card", totalPhysical !== 1 ? "s" : "", duplicateCount > 0 ? ` \xB7 ${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""}` : "")), isOwner && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 shrink-0" }, view === "main" && /* @__PURE__ */ React.createElement("button", { onClick: () => setManageOpen(true), title: "Manage values", className: "w-9 h-9 flex items-center justify-center rounded-full", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Settings, { size: 14 })), /* @__PURE__ */ React.createElement("button", { onClick: () => setView((v) => v === "stats" ? "main" : "stats"), className: "px-3 py-2 rounded-full text-xs font-medium", style: { background: view === "stats" ? theme.accent : theme.surfaceAlt, color: view === "stats" ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, view === "stats" ? "Collection" : "Stats"), view === "main" && /* @__PURE__ */ React.createElement("button", { onClick: toggleSelectMode, className: "px-3 py-2 rounded-full text-xs font-medium", style: { background: selectMode ? theme.accent : theme.surfaceAlt, color: selectMode ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, selectMode ? "Cancel" : "Select"), view === "main" && /* @__PURE__ */ React.createElement("button", { onClick: openAdd, className: "flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm", style: { background: theme.accent, color: "#1A1410" } }, /* @__PURE__ */ React.createElement(Plus, { size: 16 }), " Add"))), view === "main" && /* @__PURE__ */ React.createElement(React.Fragment, null, statsCardFilter && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between px-3 py-2 rounded-lg mb-3 text-xs", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, "Showing ", statsCardFilter.size, " card", statsCardFilter.size !== 1 ? "s" : "", " from Stats"), /* @__PURE__ */ React.createElement("button", { onClick: clearStatsCardFilter, className: "underline font-medium" }, "Clear")), /* @__PURE__ */ React.createElement("div", { className: "relative mb-3" }, /* @__PURE__ */ React.createElement(Search, { size: 16, style: { color: theme.muted }, className: "absolute left-3 top-1/2 -translate-y-1/2" }), /* @__PURE__ */ React.createElement(
+      `), /* @__PURE__ */ React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-3 mb-5" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "pc-font-display text-2xl sm:text-3xl", style: { fontWeight: 600 } }, "Photocard Binder"), /* @__PURE__ */ React.createElement("p", { className: "text-xs italic mt-0.5", style: { color: theme.muted } }, "janis' photocard tracker because she can't stop buying ATEEZ pcs"), /* @__PURE__ */ React.createElement("p", { className: "text-sm mt-1", style: { color: theme.muted } }, ownedCount, " owned \xB7 ", cards.length, " tracked \xB7 ", totalPhysical, " physical card", totalPhysical !== 1 ? "s" : "", duplicateCount > 0 ? ` \xB7 ${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""}` : "")), isOwner && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 shrink-0" }, view === "main" && /* @__PURE__ */ React.createElement("button", { onClick: () => setManageOpen(true), title: "Manage values", className: "w-9 h-9 flex items-center justify-center rounded-full", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement(Settings, { size: 14 })), /* @__PURE__ */ React.createElement("button", { onClick: () => setView((v) => v === "stats" ? "main" : "stats"), className: "px-3 py-2 rounded-full text-xs font-medium", style: { background: view === "stats" ? theme.accent : theme.surfaceAlt, color: view === "stats" ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, view === "stats" ? "Collection" : "Stats"), view === "main" && /* @__PURE__ */ React.createElement("button", { onClick: toggleSelectMode, className: "px-3 py-2 rounded-full text-xs font-medium", style: { background: selectMode ? theme.accent : theme.surfaceAlt, color: selectMode ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, selectMode ? "Cancel" : "Select"), view === "main" && /* @__PURE__ */ React.createElement("button", { onClick: openAdd, className: "flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm", style: { background: theme.accent, color: "#1A1410" } }, /* @__PURE__ */ React.createElement(Plus, { size: 16 }), " Add"))), view === "main" && /* @__PURE__ */ React.createElement(React.Fragment, null, statsCardFilter && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between px-3 py-2 rounded-lg mb-3 text-xs", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, "Showing ", statsCardFilter.size, " card", statsCardFilter.size !== 1 ? "s" : "", " from Stats"), /* @__PURE__ */ React.createElement("button", { onClick: clearStatsCardFilter, className: "underline font-medium" }, "Clear")), /* @__PURE__ */ React.createElement("div", { className: "relative mb-2" }, /* @__PURE__ */ React.createElement(Search, { size: 16, style: { color: theme.muted }, className: "absolute left-3 top-1/2 -translate-y-1/2" }), /* @__PURE__ */ React.createElement(
     "input",
     {
       value: search,
@@ -1628,7 +1826,16 @@ function PhotocardTracker({ isOwner = true } = {}) {
       placeholder: "Search group, member, release, item type, source, character, seller, notes...",
       className: "w-full pl-9 pr-3 py-2.5 rounded-xl text-sm"
     }
-  )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [{ value: "", label: "Everything" }, { value: "owned", label: "My Collection" }, { value: "missing", label: "Not owned" }].map((o) => /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 mb-2 overflow-x-auto pc-scroll pb-1" }, [{ value: "all", label: "All fields" }, { value: "member", label: "Member" }, { value: "album", label: "Release" }, { value: "category", label: "Card Type" }, { value: "source", label: "Source" }, { value: "notes", label: "Notes" }].map((f) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: f.value,
+      onClick: () => setSearchField(f.value),
+      className: "px-2.5 py-1 rounded-full text-xs font-medium shrink-0",
+      style: { background: searchField === f.value ? theme.accent : theme.surfaceAlt, color: searchField === f.value ? "#1A1410" : theme.muted, border: `1px solid ${theme.border}` }
+    },
+    f.label
+  ))), search && /* @__PURE__ */ React.createElement("p", { className: "text-xs mb-3", style: { color: theme.muted } }, filtered.length, " card", filtered.length !== 1 ? "s" : "", " match \u201C", search, "\u201D", searchField === "all" && /* @__PURE__ */ React.createElement("span", null, " \u2014 searching member, release, card type, source, notes")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [{ value: "", label: "Everything" }, { value: "owned", label: "My Collection" }, { value: "missing", label: "Not owned" }].map((o) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: o.value,
@@ -1650,18 +1857,48 @@ function PhotocardTracker({ isOwner = true } = {}) {
     "Filters ",
     activeFilterCount > 0 && `(${activeFilterCount})`,
     /* @__PURE__ */ React.createElement(ChevronDown, { size: 13, style: { transform: showFilters ? "rotate(180deg)" : "none", transition: "transform .15s" } })
-  ), activeFilterCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: clearFilters, className: "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs shrink-0", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 12 }), " Clear")), showFilters && /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 p-3 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("select", { value: filterGroup, onChange: (e) => {
+  ), activeFilterCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: clearFilters, className: "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs shrink-0", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 12 }), " Clear"), /* @__PURE__ */ React.createElement("div", { className: "w-px h-5 shrink-0", style: { background: theme.border } }), [{ value: "compact", label: "Compact" }, { value: "comfortable", label: "Comfortable" }, { value: "gallery", label: "Gallery" }].map((d) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: d.value,
+      onClick: () => setGridDensity(d.value),
+      className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0",
+      style: { background: gridDensity === d.value ? theme.accent : theme.surfaceAlt, color: gridDensity === d.value ? "#1A1410" : theme.muted, border: `1px solid ${theme.border}` }
+    },
+    d.label
+  ))), showFilters && /* @__PURE__ */ React.createElement("div", { className: "mb-4 p-3 rounded-xl space-y-4", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, savedViews.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Saved views"), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-1.5" }, savedViews.map((v) => /* @__PURE__ */ React.createElement("span", { key: v.id, className: "flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => applyView(v) }, v.name), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => deleteView(v.id), style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(X, { size: 11 })))))), /* @__PURE__ */ React.createElement(ChipMultiSelect, { label: "Member", options: filterMembers, selected: selectedMemberFilters, onToggle: (v) => {
+    toggleSetValue(setSelectedMemberFilters, v);
+    setVisibleCount(60);
+  } }), /* @__PURE__ */ React.createElement(ChipMultiSelect, { label: "Release", options: filterAlbums, selected: selectedAlbumFilters, onToggle: (v) => {
+    toggleSetValue(setSelectedAlbumFilters, v);
+    setVisibleCount(60);
+  } }), /* @__PURE__ */ React.createElement(ChipMultiSelect, { label: "Card type", options: categories, selected: selectedCategoryFilters, onToggle: (v) => {
+    toggleSetValue(setSelectedCategoryFilters, v);
+    setVisibleCount(60);
+  } }), /* @__PURE__ */ React.createElement(ChipMultiSelect, { label: "Source", options: sourceOptions, selected: selectedSourceFilters, onToggle: (v) => {
+    toggleSetValue(setSelectedSourceFilters, v);
+    setVisibleCount(60);
+  } }), /* @__PURE__ */ React.createElement(ChipMultiSelect, { label: "Status", options: STATUSES.map((s) => s.value), selected: selectedStatusFilters, onToggle: (v) => {
+    toggleSetValue(setSelectedStatusFilters, v);
+    setVisibleCount(60);
+  } }), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Price paid (\u20B1)"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", value: priceMin, onChange: (e) => {
+    setPriceMin(e.target.value);
+    setVisibleCount(60);
+  }, placeholder: "Min", className: "w-full px-2.5 py-1.5 rounded-lg text-sm" }), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, "\u2013"), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", value: priceMax, onChange: (e) => {
+    setPriceMax(e.target.value);
+    setVisibleCount(60);
+  }, placeholder: "Max", className: "w-full px-2.5 py-1.5 rounded-lg text-sm" }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] mb-1.5", style: { color: theme.muted } }, "Purchased between"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: purchaseDateFrom, onChange: (e) => {
+    setPurchaseDateFrom(e.target.value);
+    setVisibleCount(60);
+  }, className: "w-full px-2 py-1.5 rounded-lg text-sm" }), /* @__PURE__ */ React.createElement("input", { type: "date", value: purchaseDateTo, onChange: (e) => {
+    setPurchaseDateTo(e.target.value);
+    setVisibleCount(60);
+  }, className: "w-full px-2 py-1.5 rounded-lg text-sm" })))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setShowMoreFilters((s) => !s), className: "flex items-center gap-1 text-xs font-medium", style: { color: theme.accent } }, "More filters ", /* @__PURE__ */ React.createElement(ChevronDown, { size: 12, style: { transform: showMoreFilters ? "rotate(180deg)" : "none", transition: "transform .15s" } })), showMoreFilters && /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2" }, /* @__PURE__ */ React.createElement("select", { value: filterGroup, onChange: (e) => {
     setFilterGroup(e.target.value);
-    setFilterMember("");
-    setFilterAlbum("");
+    setSelectedMemberFilters(/* @__PURE__ */ new Set());
+    setSelectedAlbumFilters(/* @__PURE__ */ new Set());
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All groups"), groups.map((g) => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, g))), /* @__PURE__ */ React.createElement("select", { value: filterMember, onChange: (e) => {
-    setFilterMember(e.target.value);
-    setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All members"), filterMembers.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, m))), /* @__PURE__ */ React.createElement("select", { value: filterAlbum, onChange: (e) => {
-    setFilterAlbum(e.target.value);
-    setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All releases"), filterAlbums.map((a) => /* @__PURE__ */ React.createElement("option", { key: a, value: a }, a))), /* @__PURE__ */ React.createElement("select", { value: filterItemType, onChange: (e) => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All groups"), groups.map((g) => /* @__PURE__ */ React.createElement("option", { key: g, value: g }, g))), /* @__PURE__ */ React.createElement("select", { value: filterItemType, onChange: (e) => {
     setFilterItemType(e.target.value);
     setVisibleCount(60);
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All item types"), itemTypeOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterProductFormat, onChange: (e) => {
@@ -1670,22 +1907,32 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All formats"), productFormatOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterVersionTag, onChange: (e) => {
     setFilterVersionTag(e.target.value);
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All versions/editions"), versionDetailOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterSource, onChange: (e) => {
-    setFilterSource(e.target.value);
-    setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All sources"), sourceOptions.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))), /* @__PURE__ */ React.createElement("select", { value: filterCategory, onChange: (e) => {
-    setFilterCategory(e.target.value);
-    setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All card types"), categories.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))), /* @__PURE__ */ React.createElement("select", { value: filterCharacterSeries, onChange: (e) => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All versions/editions"), versionDetailOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterCharacterSeries, onChange: (e) => {
     setFilterCharacterSeries(e.target.value);
     setVisibleCount(60);
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All character series"), characterSeriesOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterCharacter, onChange: (e) => {
     setFilterCharacter(e.target.value);
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All characters"), characterOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterStatus, onChange: (e) => {
-    setFilterStatus(e.target.value);
-    setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All statuses"), STATUSES.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.value, value: s.value }, s.value))), /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm col-span-2 sm:col-span-1" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, cards.length === 0 ? "No photocards yet. Add your first one." : "Nothing matches these filters.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" } }, visible.map((card) => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All characters"), characterOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-2 pt-1", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high")), savingView ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: savedViewName, onChange: (e) => setSavedViewName(e.target.value), placeholder: "View name", className: "px-2 py-1.5 rounded-lg text-xs w-28" }), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: saveCurrentView, className: "text-xs font-medium", style: { color: theme.accent } }, "Save"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => {
+    setSavingView(false);
+    setSavedViewName("");
+  }, className: "text-xs", style: { color: theme.muted } }, "Cancel")) : /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setSavingView(true), className: "text-xs font-medium underline", style: { color: theme.muted } }, "Save this as a view"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl px-6", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, cards.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, "No photocards yet. Add your first one.") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-1" }, "Nothing matches that yet"), (activeFilterCount > 0 || search) && /* @__PURE__ */ React.createElement("p", { className: "text-xs mb-4", style: { color: theme.muted } }, activeFilterCount > 0 && `${activeFilterCount} filter${activeFilterCount !== 1 ? "s are" : " is"} still on, which might be hiding it. `, search && "You can also add this as a wishlist entry so it's waiting for you when it arrives."), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-2 flex-wrap mb-3" }, isOwner && search && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        setForm({ ...emptyForm, status: "Wishlist", notes: `Searched: ${search}` });
+        setEditingId(null);
+        setModalMode("add");
+      },
+      className: "px-3 py-1.5 rounded-full text-xs font-medium",
+      style: { background: theme.accent, color: "#1A1410" }
+    },
+    "Add to wishlist"
+  ), activeFilterCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: clearFiltersOnly, className: "px-3 py-1.5 rounded-full text-xs font-medium", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Clear ", activeFilterCount, " filter", activeFilterCount !== 1 ? "s" : ""), search && searchField !== "all" && /* @__PURE__ */ React.createElement("button", { onClick: () => setSearchField("all"), className: "px-3 py-1.5 rounded-full text-xs font-medium", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Search all fields")), search && (() => {
+    const pool = [...allAlbums, ...allMembers, ...categories, ...sourceOptions];
+    const suggestions = didYouMeanSuggestions(search, pool);
+    return suggestions.length > 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-xs" }, /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, "Did you mean: "), suggestions.map((s, i) => /* @__PURE__ */ React.createElement("span", { key: s }, i > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, " \xB7 "), /* @__PURE__ */ React.createElement("button", { onClick: () => setSearch(s), className: "underline", style: { color: theme.accent } }, s)))) : null;
+  })())) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: `repeat(auto-fill, minmax(${gridDensity === "compact" ? 110 : gridDensity === "gallery" ? 210 : 150}px, 1fr))` } }, visible.map((card) => {
     const badge = cardBadge(card);
     const copyCount = (card.copies || []).length;
     const showCount = card.status === "Purchased" || card.status === "Owned" || card.status === "Sold";
@@ -1758,7 +2005,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
         },
         showCount ? displayCount : /* @__PURE__ */ React.createElement(Plus, { size: 12 })
       )
-    ), /* @__PURE__ */ React.createElement("div", { className: "flex items-end justify-between gap-1.5 mt-1.5" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, card.album && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] truncate", style: { color: theme.muted } }, card.album), versionName(card) && /* @__PURE__ */ React.createElement("p", { className: "text-xs font-semibold truncate" }, versionName(card))), card.category && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] italic shrink-0", style: { color: theme.muted } }, card.category)));
+    ), /* @__PURE__ */ React.createElement("div", { className: "flex items-end justify-between gap-1.5 mt-1.5" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, card.album && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] truncate", style: { color: theme.muted } }, card.album), versionName(card) && /* @__PURE__ */ React.createElement("p", { className: "text-xs font-semibold truncate" }, versionName(card))), card.category && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] italic shrink-0", style: { color: theme.muted } }, card.category)), search && searchField === "all" && searchMatchLabel(card, search) && /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-wide mt-1", style: { color: theme.accent } }, searchMatchLabel(card, search)));
   })), visibleCount < filtered.length && /* @__PURE__ */ React.createElement("div", { className: "text-center mt-5" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setVisibleCount((v) => v + 60), className: "px-4 py-2 rounded-full text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Load more (", filtered.length - visibleCount, " remaining)"))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-4 mt-8 pt-4", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: exportJson, className: "flex items-center gap-1.5 text-xs", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Download, { size: 13 }), " Export backup"), isOwner && /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Upload, { size: 13 }), " Import backup", /* @__PURE__ */ React.createElement("input", { type: "file", accept: ".json", onChange: importJson, className: "hidden" })))), view === "stats" && isOwner && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [["today", "Today"], ["month", "This Month"], ["year", "This Year"], ["all", "All Time"], ["custom", "Custom"]].map(([p, label]) => /* @__PURE__ */ React.createElement("button", { key: p, onClick: () => setStatsPeriod(p), className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap", style: { background: statsPeriod === p ? theme.accent : theme.surfaceAlt, color: statsPeriod === p ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, label))), statsPeriod === "custom" && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 mb-3" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: customStart, onChange: (e) => setCustomStart(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" }), /* @__PURE__ */ React.createElement("input", { type: "date", value: customEnd, onChange: (e) => setCustomEnd(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" })), collectingSince && /* @__PURE__ */ React.createElement("p", { className: "text-xs mb-1", style: { color: theme.muted } }, "Collecting since ", new Date(collectingSince).toLocaleDateString("en-US", { month: "long", year: "numeric" })), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-5", style: { color: theme.muted } }, statsBounds.label), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.cardsBought), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Cards bought")), /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.uniqueCards), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Unique cards")), /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.duplicateCardIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.duplicateCopies), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Duplicate copies")), /* @__PURE__ */ React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.amountSpent)), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Amount spent")), /* @__PURE__ */ React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.avgCost)), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Avg cost / card"))), statsData.priciestMatch && statsData.priciestMatch.price > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards([statsData.priciestMatch.card.id]), className: "w-full p-3 rounded-xl text-left mb-6 flex items-center justify-between gap-3", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs", style: { color: theme.muted } }, "Priciest card this period"), /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium mt-0.5 truncate" }, [statsData.priciestMatch.card.member, statsData.priciestMatch.card.album].filter(Boolean).join(" \xB7 ") || "Untitled card")), /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-lg shrink-0", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.priciestMatch.price))), statsData.timeBreakdown.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Purchases over time"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, statsData.timeBreakdown.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.label, onClick: () => showStatCards(t.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, t.label), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, t.count, " card", t.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(t.spent)))))), Object.keys(statsData.byCategory).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by card type"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byCategory).sort((a, b) => b[1].spent - a[1].spent).map(([cat, v]) => /* @__PURE__ */ React.createElement("button", { key: cat, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, cat), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, v.count, " card", v.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(v.spent)))))), Object.keys(statsData.byMember).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by member"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byMember).sort((a, b) => b[1].spent - a[1].spent).map(([mem, v]) => /* @__PURE__ */ React.createElement("button", { key: mem, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, mem), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, v.count, " card", v.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(v.spent)))))), Object.keys(statsData.bySource).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by source"), /* @__PURE__ */ React.createElement(
     CappedList,
     {
