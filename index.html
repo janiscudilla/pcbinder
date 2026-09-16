@@ -276,28 +276,62 @@ function clampNum(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 function resizeCropBox(handleId, start, dxPx, dyPx, natW, natH) {
+  const MIN = Math.min(natW, natH) * 0.05;
   const { x, y, w, h } = start;
-  const maxW = Math.min(natW, natH / CROP_RATIO);
-  const minW = Math.max(20, maxW * 0.1);
-  const signs = {
-    tl: { sx: -1, sy: -1 },
-    tr: { sx: 1, sy: -1 },
-    bl: { sx: -1, sy: 1 },
-    br: { sx: 1, sy: 1 }
-  };
-  const { sx, sy } = signs[handleId] || { sx: 1, sy: 1 };
-  let nw = w + Math.max(sx * dxPx, sy * dyPx / CROP_RATIO);
-  nw = clampNum(nw, minW, maxW);
-  const nh = nw * CROP_RATIO;
-  let nx = x, ny = y;
-  if (handleId === "tl") {
-    nx = x + w - nw;
-    ny = y + h - nh;
-  } else if (handleId === "tr") {
-    ny = y + h - nh;
-  } else if (handleId === "bl") {
-    nx = x + w - nw;
+  let nx = x, ny = y, nw = w, nh = h;
+  switch (handleId) {
+    case "tl": {
+      const bx = x + w, by = y + h;
+      nw = w - dxPx;
+      nh = h - dyPx;
+      nx = bx - nw;
+      ny = by - nh;
+      break;
+    }
+    case "tr": {
+      const by = y + h;
+      nw = w + dxPx;
+      nh = h - dyPx;
+      ny = by - nh;
+      break;
+    }
+    case "bl": {
+      const bx = x + w;
+      nw = w - dxPx;
+      nh = h + dyPx;
+      nx = bx - nw;
+      break;
+    }
+    case "br": {
+      nw = w + dxPx;
+      nh = h + dyPx;
+      break;
+    }
+    case "top": {
+      const by = y + h;
+      nh = h - dyPx;
+      ny = by - nh;
+      break;
+    }
+    case "bottom": {
+      nh = h + dyPx;
+      break;
+    }
+    case "left": {
+      const bx = x + w;
+      nw = w - dxPx;
+      nx = bx - nw;
+      break;
+    }
+    case "right": {
+      nw = w + dxPx;
+      break;
+    }
+    default:
+      break;
   }
+  nw = clampNum(nw, MIN, natW);
+  nh = clampNum(nh, MIN, natH);
   nx = clampNum(nx, 0, natW - nw);
   ny = clampNum(ny, 0, natH - nh);
   return { x: nx, y: ny, w: nw, h: nh };
@@ -535,6 +569,10 @@ function ImageCropper({ src, crop, onChange }) {
     setNat({ w, h });
     if (!crop || !crop.w) onChange(defaultCropFor(w, h));
   }
+  function currentScale() {
+    const renderedW = containerRef.current ? containerRef.current.getBoundingClientRect().width : DISPLAY_W;
+    return renderedW / nat.w;
+  }
   function handleMove(e) {
     const d = dragRef.current;
     if (!d || !nat) return;
@@ -553,54 +591,56 @@ function ImageCropper({ src, crop, onChange }) {
     window.removeEventListener("pointermove", handleMove);
     window.removeEventListener("pointerup", handleUp);
   }
-  function startDrag(mode, e, c2, scale2) {
+  function startDrag(mode, e, c2) {
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { mode, startClientX: e.clientX, startClientY: e.clientY, start: { x: c2.x, y: c2.y, w: c2.w, h: c2.h }, scale: scale2 };
+    dragRef.current = { mode, startClientX: e.clientX, startClientY: e.clientY, start: { x: c2.x, y: c2.y, w: c2.w, h: c2.h }, scale: currentScale() };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
   }
   if (!nat) {
     return /* @__PURE__ */ React.createElement("div", { style: { width: DISPLAY_W, maxWidth: "100%", margin: "0 auto" } }, /* @__PURE__ */ React.createElement("img", { src, alt: "", onLoad: handleImgLoad, style: { width: "100%", opacity: 0, display: "block" } }), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1", style: { color: theme.muted } }, "Loading image\u2026"));
   }
-  const scale = DISPLAY_W / nat.w;
-  const displayH = nat.h * scale;
   const c = crop && crop.w ? crop : defaultCropFor(nat.w, nat.h);
-  const box = { left: c.x * scale, top: c.y * scale, width: c.w * scale, height: c.h * scale };
+  const box = { left: c.x / nat.w * 100, top: c.y / nat.h * 100, width: c.w / nat.w * 100, height: c.h / nat.h * 100 };
   const overlay = "rgba(0,0,0,0.55)";
   const handleDefs = [
     { id: "tl", style: { top: -6, left: -6, width: 12, height: 12 }, cursor: "nwse-resize" },
     { id: "tr", style: { top: -6, right: -6, width: 12, height: 12 }, cursor: "nesw-resize" },
     { id: "bl", style: { bottom: -6, left: -6, width: 12, height: 12 }, cursor: "nesw-resize" },
-    { id: "br", style: { bottom: -6, right: -6, width: 12, height: 12 }, cursor: "nwse-resize" }
+    { id: "br", style: { bottom: -6, right: -6, width: 12, height: 12 }, cursor: "nwse-resize" },
+    { id: "top", style: { top: -5, left: "50%", transform: "translateX(-50%)", width: 28, height: 8 }, cursor: "ns-resize" },
+    { id: "bottom", style: { bottom: -5, left: "50%", transform: "translateX(-50%)", width: 28, height: 8 }, cursor: "ns-resize" },
+    { id: "left", style: { left: -5, top: "50%", transform: "translateY(-50%)", width: 8, height: 28 }, cursor: "ew-resize" },
+    { id: "right", style: { right: -5, top: "50%", transform: "translateY(-50%)", width: 8, height: 28 }, cursor: "ew-resize" }
   ];
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
     "div",
     {
       ref: containerRef,
-      style: { position: "relative", width: DISPLAY_W, maxWidth: "100%", height: displayH, margin: "0 auto", borderRadius: 8, overflow: "hidden", touchAction: "none" }
+      style: { position: "relative", width: DISPLAY_W, maxWidth: "100%", aspectRatio: `${nat.w} / ${nat.h}`, margin: "0 auto", borderRadius: 8, overflow: "hidden", touchAction: "none" }
     },
     /* @__PURE__ */ React.createElement("img", { src, alt: "", draggable: false, style: { width: "100%", height: "100%", display: "block", userSelect: "none" } }),
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: 0, right: 0, height: box.top, background: overlay, pointerEvents: "none" } }),
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: box.top + box.height, right: 0, bottom: 0, background: overlay, pointerEvents: "none" } }),
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: box.top, width: box.left, height: box.height, background: overlay, pointerEvents: "none" } }),
-    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: box.left + box.width, top: box.top, right: 0, height: box.height, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: 0, right: 0, height: `${box.top}%`, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: `${box.top + box.height}%`, right: 0, bottom: 0, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, top: `${box.top}%`, width: `${box.left}%`, height: `${box.height}%`, background: overlay, pointerEvents: "none" } }),
+    /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: `${box.left + box.width}%`, top: `${box.top}%`, right: 0, height: `${box.height}%`, background: overlay, pointerEvents: "none" } }),
     /* @__PURE__ */ React.createElement(
       "div",
       {
-        onPointerDown: (e) => startDrag("pan", e, c, scale),
-        style: { position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height, border: "2px dashed rgba(255,255,255,0.9)", cursor: "grab" }
+        onPointerDown: (e) => startDrag("pan", e, c),
+        style: { position: "absolute", left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%`, border: "2px dashed rgba(255,255,255,0.9)", cursor: "grab" }
       },
       handleDefs.map((h) => /* @__PURE__ */ React.createElement(
         "div",
         {
           key: h.id,
-          onPointerDown: (e) => startDrag(h.id, e, c, scale),
+          onPointerDown: (e) => startDrag(h.id, e, c),
           style: { position: "absolute", background: "rgba(255,255,255,0.35)", border: "1.5px solid rgba(255,255,255,0.9)", borderRadius: 3, cursor: h.cursor, ...h.style }
         }
       ))
     )
-  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a corner to resize \u2014 always locked to the card shape"));
+  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a handle to resize that side"));
 }
 function TagMultiSelect({ label, values, options, onChange, placeholder }) {
   const [query, setQuery] = useState("");
