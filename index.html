@@ -394,6 +394,10 @@ function parsePrice(str) {
 function sumSpent(card) {
   return (card.copies || []).reduce((sum, c) => sum + parsePrice(c.price), 0);
 }
+function cardPurchaseDate(card) {
+  const dates = (card.copies || []).map((c) => c.date).filter(Boolean);
+  return dates.length > 0 ? dates.reduce((max, d) => d > max ? d : max) : null;
+}
 function formatCurrency(n) {
   return (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -1247,6 +1251,9 @@ function PhotocardTracker({ isOwner = true } = {}) {
       case "spent-low":
         list = [...list].sort((a, b) => sumSpent(a) - sumSpent(b));
         break;
+      case "purchased":
+        list = [...list].sort((a, b) => (cardPurchaseDate(b) || "").localeCompare(cardPurchaseDate(a) || ""));
+        break;
       default:
         list = [...list].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     }
@@ -1806,6 +1813,103 @@ function PhotocardTracker({ isOwner = true } = {}) {
     } catch (e) {
     }
   }
+  const monthGroups = useMemo(() => {
+    if (sortBy !== "purchased") return null;
+    const map = {};
+    const order = [];
+    visible.forEach((card) => {
+      const d = cardPurchaseDate(card);
+      const key = d ? d.slice(0, 7) : "__none__";
+      if (!map[key]) {
+        map[key] = { cards: [], spend: 0 };
+        order.push(key);
+      }
+      map[key].cards.push(card);
+      map[key].spend += sumSpent(card);
+    });
+    return order.map((key) => ({
+      key,
+      label: key === "__none__" ? "No purchase date" : (/* @__PURE__ */ new Date(`${key}-01T00:00:00`)).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      cards: map[key].cards,
+      spend: map[key].spend
+    }));
+  }, [visible, sortBy]);
+  function renderCardTile(card) {
+    const badge = cardBadge(card);
+    const copyCount = (card.copies || []).length;
+    const showCount = card.status === "Purchased" || card.status === "Owned" || card.status === "Sold";
+    const displayCount = card.status === "Sold" ? 0 : copyCount;
+    return /* @__PURE__ */ React.createElement("div", { key: card.id }, /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline justify-between gap-1 mb-1.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold truncate" }, card.group || "\u2014"), /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold truncate text-right" }, card.member || "")), /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        role: "button",
+        tabIndex: 0,
+        onClick: () => {
+          selectMode ? toggleSelected(card.id) : (setSelectedCard(card), setDetailSide("front"));
+        },
+        onKeyDown: (e) => {
+          if (e.key === "Enter") {
+            selectMode ? toggleSelected(card.id) : (setSelectedCard(card), setDetailSide("front"));
+          }
+        },
+        className: "pc-card rounded-xl overflow-hidden relative cursor-pointer",
+        style: { background: theme.surfaceAlt, border: selectMode && selectedIds.has(card.id) ? `2px solid ${theme.accent}` : `1px solid ${theme.border}` }
+      },
+      card.frontImage ? /* @__PURE__ */ React.createElement(
+        CroppedImage,
+        {
+          src: resolveImageUrl(card.frontImage),
+          crop: card.imageCrop,
+          onError: (e) => {
+            e.target.style.display = "none";
+            if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+          }
+        }
+      ) : null,
+      /* @__PURE__ */ React.createElement("div", { className: "w-full h-full items-center justify-center flex-col gap-1", style: { display: card.frontImage ? "none" : "flex", color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 20 }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px]" }, "No image")),
+      selectMode ? /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          className: "absolute top-2 left-2 w-5 h-5 rounded-full flex items-center justify-center",
+          style: { background: selectedIds.has(card.id) ? theme.accent : "rgba(0,0,0,0.5)", border: "1.5px solid rgba(255,255,255,0.8)" }
+        },
+        selectedIds.has(card.id) && /* @__PURE__ */ React.createElement("span", { style: { color: "#1A1410", fontSize: 11, fontWeight: 700 } }, "\u2713")
+      ) : badge && (isOwner ? /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            cycleStatus(card.id);
+          },
+          title: "Tap to change status",
+          className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
+          style: { background: badge.color, color: "#1A1410" }
+        },
+        badge.label
+      ) : /* @__PURE__ */ React.createElement(
+        "span",
+        {
+          className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
+          style: { background: badge.color, color: "#1A1410" }
+        },
+        badge.label
+      )),
+      isOwner && !selectMode && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: (e) => {
+            e.stopPropagation();
+            quickAddCopy(card.id);
+          },
+          title: card.status === "Purchased" || card.status === "Owned" ? "Add another copy" : card.status === "Sold" ? "Sold \u2014 no longer in your inventory" : card.status === "Wishlist" ? "On your wishlist" : "Add to wishlist",
+          className: "absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+          style: { background: "rgba(0,0,0,0.55)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }
+        },
+        showCount ? displayCount : /* @__PURE__ */ React.createElement(Plus, { size: 12 })
+      )
+    ), /* @__PURE__ */ React.createElement("div", { className: "flex items-end justify-between gap-1.5 mt-1.5" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, card.album && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] truncate", style: { color: theme.muted } }, card.album), versionName(card) && /* @__PURE__ */ React.createElement("p", { className: "text-xs font-semibold truncate" }, versionName(card))), card.category && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] italic shrink-0", style: { color: theme.muted } }, card.category)), search && searchField === "all" && searchMatchLabel(card, search) && /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-wide mt-1", style: { color: theme.accent } }, searchMatchLabel(card, search)));
+  }
+  const gridColsStyle = { gridTemplateColumns: `repeat(auto-fill, minmax(${gridDensity === "compact" ? 110 : gridDensity === "gallery" ? 210 : 150}px, 1fr))` };
   return /* @__PURE__ */ React.createElement("div", { style: { background: theme.bg, color: theme.text, minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }, className: "w-full min-h-screen" }, /* @__PURE__ */ React.createElement("style", null, `
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
         .pc-font-display { font-family: 'Fraunces', serif; }
@@ -1913,7 +2017,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All character series"), characterSeriesOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))), /* @__PURE__ */ React.createElement("select", { value: filterCharacter, onChange: (e) => {
     setFilterCharacter(e.target.value);
     setVisibleCount(60);
-  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All characters"), characterOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-2 pt-1", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high")), savingView ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: savedViewName, onChange: (e) => setSavedViewName(e.target.value), placeholder: "View name", className: "px-2 py-1.5 rounded-lg text-xs w-28" }), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: saveCurrentView, className: "text-xs font-medium", style: { color: theme.accent } }, "Save"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => {
+  }, className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "" }, "All characters"), characterOptions.map((v) => /* @__PURE__ */ React.createElement("option", { key: v, value: v }, v))))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between gap-2 pt-1", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("select", { value: sortBy, onChange: (e) => setSortBy(e.target.value), className: "px-2 py-2 rounded-lg text-sm" }, /* @__PURE__ */ React.createElement("option", { value: "recent" }, "Recently added"), /* @__PURE__ */ React.createElement("option", { value: "group" }, "Group A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "member" }, "Member A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "version" }, "Version / edition A\u2013Z"), /* @__PURE__ */ React.createElement("option", { value: "release" }, "Release date"), /* @__PURE__ */ React.createElement("option", { value: "spent-high" }, "Total spent: high to low"), /* @__PURE__ */ React.createElement("option", { value: "spent-low" }, "Total spent: low to high"), /* @__PURE__ */ React.createElement("option", { value: "purchased" }, "Purchase date (groups by month)")), savingView ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement("input", { autoFocus: true, value: savedViewName, onChange: (e) => setSavedViewName(e.target.value), placeholder: "View name", className: "px-2 py-1.5 rounded-lg text-xs w-28" }), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: saveCurrentView, className: "text-xs font-medium", style: { color: theme.accent } }, "Save"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => {
     setSavingView(false);
     setSavedViewName("");
   }, className: "text-xs", style: { color: theme.muted } }, "Cancel")) : /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setSavingView(true), className: "text-xs font-medium underline", style: { color: theme.muted } }, "Save this as a view"))), !loaded ? /* @__PURE__ */ React.createElement("div", { className: "text-sm py-12 text-center", style: { color: theme.muted } }, "Loading your collection...") : filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "text-center py-16 rounded-xl px-6", style: { background: theme.surface, border: `1px dashed ${theme.border}` } }, cards.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-sm", style: { color: theme.muted } }, "No photocards yet. Add your first one.") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-1" }, "Nothing matches that yet"), (activeFilterCount > 0 || search) && /* @__PURE__ */ React.createElement("p", { className: "text-xs mb-4", style: { color: theme.muted } }, activeFilterCount > 0 && `${activeFilterCount} filter${activeFilterCount !== 1 ? "s are" : " is"} still on, which might be hiding it. `, search && "You can also add this as a wishlist entry so it's waiting for you when it arrives."), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-2 flex-wrap mb-3" }, isOwner && search && /* @__PURE__ */ React.createElement(
@@ -1932,81 +2036,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
     const pool = [...allAlbums, ...allMembers, ...categories, ...sourceOptions];
     const suggestions = didYouMeanSuggestions(search, pool);
     return suggestions.length > 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-xs" }, /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, "Did you mean: "), suggestions.map((s, i) => /* @__PURE__ */ React.createElement("span", { key: s }, i > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, " \xB7 "), /* @__PURE__ */ React.createElement("button", { onClick: () => setSearch(s), className: "underline", style: { color: theme.accent } }, s)))) : null;
-  })())) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: { gridTemplateColumns: `repeat(auto-fill, minmax(${gridDensity === "compact" ? 110 : gridDensity === "gallery" ? 210 : 150}px, 1fr))` } }, visible.map((card) => {
-    const badge = cardBadge(card);
-    const copyCount = (card.copies || []).length;
-    const showCount = card.status === "Purchased" || card.status === "Owned" || card.status === "Sold";
-    const displayCount = card.status === "Sold" ? 0 : copyCount;
-    return /* @__PURE__ */ React.createElement("div", { key: card.id }, /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline justify-between gap-1 mb-1.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold truncate" }, card.group || "\u2014"), /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold truncate text-right" }, card.member || "")), /* @__PURE__ */ React.createElement(
-      "div",
-      {
-        role: "button",
-        tabIndex: 0,
-        onClick: () => {
-          selectMode ? toggleSelected(card.id) : (setSelectedCard(card), setDetailSide("front"));
-        },
-        onKeyDown: (e) => {
-          if (e.key === "Enter") {
-            selectMode ? toggleSelected(card.id) : (setSelectedCard(card), setDetailSide("front"));
-          }
-        },
-        className: "pc-card rounded-xl overflow-hidden relative cursor-pointer",
-        style: { background: theme.surfaceAlt, border: selectMode && selectedIds.has(card.id) ? `2px solid ${theme.accent}` : `1px solid ${theme.border}` }
-      },
-      card.frontImage ? /* @__PURE__ */ React.createElement(
-        CroppedImage,
-        {
-          src: resolveImageUrl(card.frontImage),
-          crop: card.imageCrop,
-          onError: (e) => {
-            e.target.style.display = "none";
-            if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
-          }
-        }
-      ) : null,
-      /* @__PURE__ */ React.createElement("div", { className: "w-full h-full items-center justify-center flex-col gap-1", style: { display: card.frontImage ? "none" : "flex", color: theme.muted } }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 20 }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px]" }, "No image")),
-      selectMode ? /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          className: "absolute top-2 left-2 w-5 h-5 rounded-full flex items-center justify-center",
-          style: { background: selectedIds.has(card.id) ? theme.accent : "rgba(0,0,0,0.5)", border: "1.5px solid rgba(255,255,255,0.8)" }
-        },
-        selectedIds.has(card.id) && /* @__PURE__ */ React.createElement("span", { style: { color: "#1A1410", fontSize: 11, fontWeight: 700 } }, "\u2713")
-      ) : badge && (isOwner ? /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          onClick: (e) => {
-            e.stopPropagation();
-            cycleStatus(card.id);
-          },
-          title: "Tap to change status",
-          className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
-          style: { background: badge.color, color: "#1A1410" }
-        },
-        badge.label
-      ) : /* @__PURE__ */ React.createElement(
-        "span",
-        {
-          className: "absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
-          style: { background: badge.color, color: "#1A1410" }
-        },
-        badge.label
-      )),
-      isOwner && !selectMode && /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          onClick: (e) => {
-            e.stopPropagation();
-            quickAddCopy(card.id);
-          },
-          title: card.status === "Purchased" || card.status === "Owned" ? "Add another copy" : card.status === "Sold" ? "Sold \u2014 no longer in your inventory" : card.status === "Wishlist" ? "On your wishlist" : "Add to wishlist",
-          className: "absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-          style: { background: "rgba(0,0,0,0.55)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }
-        },
-        showCount ? displayCount : /* @__PURE__ */ React.createElement(Plus, { size: 12 })
-      )
-    ), /* @__PURE__ */ React.createElement("div", { className: "flex items-end justify-between gap-1.5 mt-1.5" }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, card.album && /* @__PURE__ */ React.createElement("p", { className: "text-[11px] truncate", style: { color: theme.muted } }, card.album), versionName(card) && /* @__PURE__ */ React.createElement("p", { className: "text-xs font-semibold truncate" }, versionName(card))), card.category && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] italic shrink-0", style: { color: theme.muted } }, card.category)), search && searchField === "all" && searchMatchLabel(card, search) && /* @__PURE__ */ React.createElement("p", { className: "text-[9px] font-bold uppercase tracking-wide mt-1", style: { color: theme.accent } }, searchMatchLabel(card, search)));
-  })), visibleCount < filtered.length && /* @__PURE__ */ React.createElement("div", { className: "text-center mt-5" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setVisibleCount((v) => v + 60), className: "px-4 py-2 rounded-full text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Load more (", filtered.length - visibleCount, " remaining)"))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-4 mt-8 pt-4", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: exportJson, className: "flex items-center gap-1.5 text-xs", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Download, { size: 13 }), " Export backup"), isOwner && /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Upload, { size: 13 }), " Import backup", /* @__PURE__ */ React.createElement("input", { type: "file", accept: ".json", onChange: importJson, className: "hidden" })))), view === "stats" && isOwner && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [["today", "Today"], ["month", "This Month"], ["year", "This Year"], ["all", "All Time"], ["custom", "Custom"]].map(([p, label]) => /* @__PURE__ */ React.createElement("button", { key: p, onClick: () => setStatsPeriod(p), className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap", style: { background: statsPeriod === p ? theme.accent : theme.surfaceAlt, color: statsPeriod === p ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, label))), statsPeriod === "custom" && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 mb-3" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: customStart, onChange: (e) => setCustomStart(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" }), /* @__PURE__ */ React.createElement("input", { type: "date", value: customEnd, onChange: (e) => setCustomEnd(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" })), collectingSince && /* @__PURE__ */ React.createElement("p", { className: "text-xs mb-1", style: { color: theme.muted } }, "Collecting since ", new Date(collectingSince).toLocaleDateString("en-US", { month: "long", year: "numeric" })), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-5", style: { color: theme.muted } }, statsBounds.label), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.cardsBought), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Cards bought")), /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.uniqueCards), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Unique cards")), /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.duplicateCardIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.duplicateCopies), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Duplicate copies")), /* @__PURE__ */ React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.amountSpent)), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Amount spent")), /* @__PURE__ */ React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.avgCost)), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Avg cost / card"))), statsData.priciestMatch && statsData.priciestMatch.price > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards([statsData.priciestMatch.card.id]), className: "w-full p-3 rounded-xl text-left mb-6 flex items-center justify-between gap-3", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs", style: { color: theme.muted } }, "Priciest card this period"), /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium mt-0.5 truncate" }, [statsData.priciestMatch.card.member, statsData.priciestMatch.card.album].filter(Boolean).join(" \xB7 ") || "Untitled card")), /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-lg shrink-0", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.priciestMatch.price))), statsData.timeBreakdown.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Purchases over time"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, statsData.timeBreakdown.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.label, onClick: () => showStatCards(t.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, t.label), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, t.count, " card", t.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(t.spent)))))), Object.keys(statsData.byCategory).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by card type"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byCategory).sort((a, b) => b[1].spent - a[1].spent).map(([cat, v]) => /* @__PURE__ */ React.createElement("button", { key: cat, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, cat), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, v.count, " card", v.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(v.spent)))))), Object.keys(statsData.byMember).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by member"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byMember).sort((a, b) => b[1].spent - a[1].spent).map(([mem, v]) => /* @__PURE__ */ React.createElement("button", { key: mem, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, mem), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, v.count, " card", v.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(v.spent)))))), Object.keys(statsData.bySource).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by source"), /* @__PURE__ */ React.createElement(
+  })())) : /* @__PURE__ */ React.createElement(React.Fragment, null, monthGroups ? /* @__PURE__ */ React.createElement("div", { className: "space-y-6" }, monthGroups.map((group) => /* @__PURE__ */ React.createElement("div", { key: group.key }, /* @__PURE__ */ React.createElement("div", { className: "flex items-baseline justify-between mb-3 pb-2", style: { borderBottom: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold" }, group.label), /* @__PURE__ */ React.createElement("span", { className: "text-xs", style: { color: theme.muted } }, group.cards.length, " card", group.cards.length !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(group.spend))), /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: gridColsStyle }, group.cards.map(renderCardTile))))) : /* @__PURE__ */ React.createElement("div", { className: "grid gap-x-3 gap-y-5", style: gridColsStyle }, visible.map(renderCardTile)), visibleCount < filtered.length && /* @__PURE__ */ React.createElement("div", { className: "text-center mt-5" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setVisibleCount((v) => v + 60), className: "px-4 py-2 rounded-full text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, "Load more (", filtered.length - visibleCount, " remaining)"))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-4 mt-8 pt-4", style: { borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("button", { onClick: exportJson, className: "flex items-center gap-1.5 text-xs", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Download, { size: 13 }), " Export backup"), isOwner && /* @__PURE__ */ React.createElement("label", { className: "flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.muted } }, /* @__PURE__ */ React.createElement(Upload, { size: 13 }), " Import backup", /* @__PURE__ */ React.createElement("input", { type: "file", accept: ".json", onChange: importJson, className: "hidden" })))), view === "stats" && isOwner && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 mb-3 overflow-x-auto pc-scroll pb-1" }, [["today", "Today"], ["month", "This Month"], ["year", "This Year"], ["all", "All Time"], ["custom", "Custom"]].map(([p, label]) => /* @__PURE__ */ React.createElement("button", { key: p, onClick: () => setStatsPeriod(p), className: "px-3 py-1.5 rounded-full text-xs font-medium shrink-0 whitespace-nowrap", style: { background: statsPeriod === p ? theme.accent : theme.surfaceAlt, color: statsPeriod === p ? "#1A1410" : theme.text, border: `1px solid ${theme.border}` } }, label))), statsPeriod === "custom" && /* @__PURE__ */ React.createElement("div", { className: "flex gap-2 mb-3" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: customStart, onChange: (e) => setCustomStart(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" }), /* @__PURE__ */ React.createElement("input", { type: "date", value: customEnd, onChange: (e) => setCustomEnd(e.target.value), className: "px-2.5 py-2 rounded-lg text-sm flex-1" })), collectingSince && /* @__PURE__ */ React.createElement("p", { className: "text-xs mb-1", style: { color: theme.muted } }, "Collecting since ", new Date(collectingSince).toLocaleDateString("en-US", { month: "long", year: "numeric" })), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-5", style: { color: theme.muted } }, statsBounds.label), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3 mb-6" }, /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.cardsBought), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Cards bought")), /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.uniqueIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.uniqueCards), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Unique cards")), /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards(statsData.duplicateCardIds), className: "p-4 rounded-xl text-left", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, statsData.duplicateCopies), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Duplicate copies")), /* @__PURE__ */ React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.amountSpent)), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Amount spent")), /* @__PURE__ */ React.createElement("div", { className: "p-4 rounded-xl", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-2xl", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.avgCost)), /* @__PURE__ */ React.createElement("p", { className: "text-xs mt-0.5", style: { color: theme.muted } }, "Avg cost / card"))), statsData.priciestMatch && statsData.priciestMatch.price > 0 && /* @__PURE__ */ React.createElement("button", { onClick: () => showStatCards([statsData.priciestMatch.card.id]), className: "w-full p-3 rounded-xl text-left mb-6 flex items-center justify-between gap-3", style: { background: theme.surface, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs", style: { color: theme.muted } }, "Priciest card this period"), /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium mt-0.5 truncate" }, [statsData.priciestMatch.card.member, statsData.priciestMatch.card.album].filter(Boolean).join(" \xB7 ") || "Untitled card")), /* @__PURE__ */ React.createElement("p", { className: "pc-font-display text-lg shrink-0", style: { fontWeight: 600 } }, "\u20B1", formatCurrency(statsData.priciestMatch.price))), statsData.timeBreakdown.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Purchases over time"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, statsData.timeBreakdown.map((t) => /* @__PURE__ */ React.createElement("button", { key: t.label, onClick: () => showStatCards(t.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, t.label), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, t.count, " card", t.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(t.spent)))))), Object.keys(statsData.byCategory).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by card type"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byCategory).sort((a, b) => b[1].spent - a[1].spent).map(([cat, v]) => /* @__PURE__ */ React.createElement("button", { key: cat, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, cat), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, v.count, " card", v.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(v.spent)))))), Object.keys(statsData.byMember).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by member"), /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, Object.entries(statsData.byMember).sort((a, b) => b[1].spent - a[1].spent).map(([mem, v]) => /* @__PURE__ */ React.createElement("button", { key: mem, onClick: () => showStatCards(v.ids), className: "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("span", null, mem), /* @__PURE__ */ React.createElement("span", { style: { color: theme.muted } }, v.count, " card", v.count !== 1 ? "s" : "", " \xB7 \u20B1", formatCurrency(v.spent)))))), Object.keys(statsData.bySource).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "mb-6" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-semibold mb-2" }, "Spending by source"), /* @__PURE__ */ React.createElement(
     CappedList,
     {
       items: Object.entries(statsData.bySource).sort((a, b) => b[1].spent - a[1].spent),
