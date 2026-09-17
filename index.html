@@ -1064,9 +1064,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
   const persist = useCallback(async (next) => {
     try {
       await storage.set(STORAGE_KEY, JSON.stringify(next), false);
+      return true;
     } catch (e) {
-      setToast("Save failed \u2014 this change may not survive closing the tab.");
-      setTimeout(() => setToast(""), 4e3);
+      setToast("Save failed \u2014 this change is NOT saved. Check your connection and try again before closing this tab.");
+      setTimeout(() => setToast(""), 7e3);
+      return false;
     }
   }, []);
   const groups = useMemo(() => [...new Set(cards.map((c) => c.group).filter(Boolean))].sort(), [cards]);
@@ -1155,25 +1157,27 @@ function PhotocardTracker({ isOwner = true } = {}) {
       next = cards.map((c) => c[field] === oldVal ? { ...c, [field]: newVal } : c);
     }
     setCards(next);
-    await persist(next);
-    if (field === "source") {
-      const nextSources = [...new Set(customSources.map((s) => s === oldVal ? newVal : s))];
-      setCustomSources(nextSources);
-      await persistCustomLists(nextSources, customCategories, customItemTypes, customProductFormats);
-    } else if (field === "category") {
-      const nextCategories = [...new Set(customCategories.map((c) => c === oldVal ? newVal : c))];
-      setCustomCategories(nextCategories);
-      await persistCustomLists(customSources, nextCategories, customItemTypes, customProductFormats);
-    } else if (field === "itemType") {
-      const nextItemTypes = [...new Set(customItemTypes.map((v) => v === oldVal ? newVal : v))];
-      setCustomItemTypes(nextItemTypes);
-      await persistCustomLists(customSources, customCategories, nextItemTypes, customProductFormats);
-    } else if (field === "productFormat") {
-      const nextProductFormats = [...new Set(customProductFormats.map((v) => v === oldVal ? newVal : v))];
-      setCustomProductFormats(nextProductFormats);
-      await persistCustomLists(customSources, customCategories, customItemTypes, nextProductFormats);
+    const ok = await persist(next);
+    if (ok) {
+      if (field === "source") {
+        const nextSources = [...new Set(customSources.map((s) => s === oldVal ? newVal : s))];
+        setCustomSources(nextSources);
+        await persistCustomLists(nextSources, customCategories, customItemTypes, customProductFormats);
+      } else if (field === "category") {
+        const nextCategories = [...new Set(customCategories.map((c) => c === oldVal ? newVal : c))];
+        setCustomCategories(nextCategories);
+        await persistCustomLists(customSources, nextCategories, customItemTypes, customProductFormats);
+      } else if (field === "itemType") {
+        const nextItemTypes = [...new Set(customItemTypes.map((v) => v === oldVal ? newVal : v))];
+        setCustomItemTypes(nextItemTypes);
+        await persistCustomLists(customSources, customCategories, nextItemTypes, customProductFormats);
+      } else if (field === "productFormat") {
+        const nextProductFormats = [...new Set(customProductFormats.map((v) => v === oldVal ? newVal : v))];
+        setCustomProductFormats(nextProductFormats);
+        await persistCustomLists(customSources, customCategories, customItemTypes, nextProductFormats);
+      }
+      setToast(`Renamed "${oldVal}" to "${newVal}".`);
     }
-    setToast(`Renamed "${oldVal}" to "${newVal}".`);
     setTimeout(() => setToast(""), 2500);
   }
   async function deleteFieldValue(field, val) {
@@ -1189,25 +1193,27 @@ function PhotocardTracker({ isOwner = true } = {}) {
       next = cards.map((c) => c[field] === val ? { ...c, [field]: "" } : c);
     }
     setCards(next);
-    await persist(next);
-    if (field === "source") {
-      const nextSources = customSources.filter((s) => s !== val);
-      setCustomSources(nextSources);
-      await persistCustomLists(nextSources, customCategories, customItemTypes, customProductFormats);
-    } else if (field === "category") {
-      const nextCategories = customCategories.filter((c) => c !== val);
-      setCustomCategories(nextCategories);
-      await persistCustomLists(customSources, nextCategories, customItemTypes, customProductFormats);
-    } else if (field === "itemType") {
-      const nextItemTypes = customItemTypes.filter((v) => v !== val);
-      setCustomItemTypes(nextItemTypes);
-      await persistCustomLists(customSources, customCategories, nextItemTypes, customProductFormats);
-    } else if (field === "productFormat") {
-      const nextProductFormats = customProductFormats.filter((v) => v !== val);
-      setCustomProductFormats(nextProductFormats);
-      await persistCustomLists(customSources, customCategories, customItemTypes, nextProductFormats);
+    const ok = await persist(next);
+    if (ok) {
+      if (field === "source") {
+        const nextSources = customSources.filter((s) => s !== val);
+        setCustomSources(nextSources);
+        await persistCustomLists(nextSources, customCategories, customItemTypes, customProductFormats);
+      } else if (field === "category") {
+        const nextCategories = customCategories.filter((c) => c !== val);
+        setCustomCategories(nextCategories);
+        await persistCustomLists(customSources, nextCategories, customItemTypes, customProductFormats);
+      } else if (field === "itemType") {
+        const nextItemTypes = customItemTypes.filter((v) => v !== val);
+        setCustomItemTypes(nextItemTypes);
+        await persistCustomLists(customSources, customCategories, nextItemTypes, customProductFormats);
+      } else if (field === "productFormat") {
+        const nextProductFormats = customProductFormats.filter((v) => v !== val);
+        setCustomProductFormats(nextProductFormats);
+        await persistCustomLists(customSources, customCategories, customItemTypes, nextProductFormats);
+      }
+      setToast(`Deleted "${val}".`);
     }
-    setToast(`Deleted "${val}".`);
     setTimeout(() => setToast(""), 2500);
   }
   const orderedWithExtras = useCallback((defaults, extras) => {
@@ -1657,9 +1663,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     });
     if (!message) return;
     setCards(next);
-    await persist(next);
-    setToast(message);
-    setTimeout(() => setToast(""), 2e3);
+    const ok = await persist(next);
+    if (ok) {
+      setToast(message);
+      setTimeout(() => setToast(""), 2e3);
+    }
   }
   async function cycleStatus(cardId) {
     const next = cards.map((c) => {
@@ -1674,9 +1682,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
       return c;
     });
     setCards(next);
-    await persist(next);
-    setToast("Status updated.");
-    setTimeout(() => setToast(""), 2e3);
+    const ok = await persist(next);
+    if (ok) {
+      setToast("Status updated.");
+      setTimeout(() => setToast(""), 2e3);
+    }
   }
   function updateCopy(idx, key, value) {
     setForm((f) => ({ ...f, copies: f.copies.map((c, i) => i === idx ? { ...c, [key]: value } : c) }));
@@ -1698,9 +1708,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     }
     setCards(next);
     closeModal();
-    await persist(next);
-    setToast(editingId ? "Photocard updated." : "Photocard added.");
-    setTimeout(() => setToast(""), 2500);
+    const ok = await persist(next);
+    if (ok) {
+      setToast(editingId ? "Photocard updated." : "Photocard added.");
+      setTimeout(() => setToast(""), 2500);
+    }
   }
   async function saveFormAndAddAnother() {
     if (!form.member.trim() || !form.album.trim()) {
@@ -1710,9 +1722,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     }
     const next = [...cards, { ...form, id: uid(), createdAt: Date.now() }];
     setCards(next);
-    await persist(next);
-    setToast("Photocard added.");
-    setTimeout(() => setToast(""), 2e3);
+    const ok = await persist(next);
+    if (ok) {
+      setToast("Photocard added.");
+      setTimeout(() => setToast(""), 2e3);
+    }
     setForm({ ...emptyForm, group: form.group, album: form.album, itemType: "Photocard", copies: [] });
     setEditingId(null);
   }
@@ -1720,9 +1734,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     const next = cards.filter((c) => c.id !== id);
     setCards(next);
     setSelectedCard(null);
-    await persist(next);
-    setToast("Photocard deleted.");
-    setTimeout(() => setToast(""), 2500);
+    const ok = await persist(next);
+    if (ok) {
+      setToast("Photocard deleted.");
+      setTimeout(() => setToast(""), 2500);
+    }
   }
   function openQuickCrop(card, side = "front") {
     setCropCard(card);
@@ -1740,9 +1756,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     setCards(next);
     setSelectedCard((sc) => sc && sc.id === cropCard.id ? { ...sc, [field]: cropDraft } : sc);
     closeQuickCrop();
-    await persist(next);
-    setToast("Crop updated.");
-    setTimeout(() => setToast(""), 2e3);
+    const ok = await persist(next);
+    if (ok) {
+      setToast("Crop updated.");
+      setTimeout(() => setToast(""), 2e3);
+    }
   }
   function toggleSelectMode() {
     setSelectMode((m) => !m);
@@ -1762,9 +1780,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     setCards(next);
     setSelectedIds(/* @__PURE__ */ new Set());
     setSelectMode(false);
-    await persist(next);
-    setToast(`${count} photocard${count !== 1 ? "s" : ""} deleted.`);
-    setTimeout(() => setToast(""), 2500);
+    const ok = await persist(next);
+    if (ok) {
+      setToast(`${count} photocard${count !== 1 ? "s" : ""} deleted.`);
+      setTimeout(() => setToast(""), 2500);
+    }
   }
   async function applyBulkEdit() {
     const count = selectedIds.size;
@@ -1792,9 +1812,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     setBulkForm({ group: "", member: "", album: "", itemType: "", productFormat: "", source: "", versionDetail: [], category: "", characterSeries: "", character: "", releaseDate: "", status: "", dateSold: "", notes: "" });
     setSelectedIds(/* @__PURE__ */ new Set());
     setSelectMode(false);
-    await persist(next);
-    setToast(`Bulk update applied to ${count} card${count !== 1 ? "s" : ""}.`);
-    setTimeout(() => setToast(""), 2500);
+    const ok = await persist(next);
+    if (ok) {
+      setToast(`Bulk update applied to ${count} card${count !== 1 ? "s" : ""}.`);
+      setTimeout(() => setToast(""), 2500);
+    }
   }
   function exportJson() {
     const blob = new Blob([JSON.stringify(cards, null, 2)], { type: "application/json" });
@@ -1842,9 +1864,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
     setBulkCreateOpen(false);
     setBulkCreateText("");
     setBulkCreateError("");
-    await persist(next);
-    setToast(`${newCards.length} card${newCards.length !== 1 ? "s" : ""} created \u2014 add photos when ready.`);
-    setTimeout(() => setToast(""), 3e3);
+    const ok = await persist(next);
+    if (ok) {
+      setToast(`${newCards.length} card${newCards.length !== 1 ? "s" : ""} created \u2014 add photos when ready.`);
+      setTimeout(() => setToast(""), 3e3);
+    }
   }
   async function copyBulkCreatePrompt() {
     try {
