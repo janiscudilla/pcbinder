@@ -31,13 +31,35 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const OWNER_UID = "Trl5kcfGpsdtCg2EdCC4UiCw3973";
 const storage = {
+  // Firestore hard-caps a single document at 1 MiB — with 300+ cards (plus any inline
+  // base64-uploaded photos) in one JSON blob, that ceiling is exactly what's being hit. Each
+  // key's value is now split across several smaller documents ("chunks") instead of one big one,
+  // so there's no realistic size this can hit again. Falls back to the old single-document format
+  // on read if no chunks exist yet, so existing data isn't orphaned by this change.
+  CHUNK_SIZE: 300000,
   async get(key) {
+    const partsSnap = await db.collection("kv_chunks").doc(key).collection("parts")
+      .orderBy(firebase.firestore.FieldPath.documentId()).get();
+    if (!partsSnap.empty) {
+      let value = "";
+      partsSnap.forEach(d => { value += d.data().v; });
+      return { key, value };
+    }
     const doc = await db.collection("kv").doc(key).get();
     if (!doc.exists) throw new Error("not found");
     return { key, value: doc.data().value };
   },
   async set(key, value) {
-    await db.collection("kv").doc(key).set({ value });
+    const partsRef = db.collection("kv_chunks").doc(key).collection("parts");
+    const existing = await partsRef.get();
+    const batch = db.batch();
+    existing.forEach(d => batch.delete(d.ref));
+    const chunkCount = Math.max(1, Math.ceil(value.length / storage.CHUNK_SIZE));
+    for (let i = 0; i < chunkCount; i++) {
+      const chunk = value.slice(i * storage.CHUNK_SIZE, (i + 1) * storage.CHUNK_SIZE);
+      batch.set(partsRef.doc(String(i).padStart(4, "0")), { v: chunk });
+    }
+    await batch.commit();
     return { key, value };
   }
 };
