@@ -623,6 +623,22 @@ function ImageCropper({ src, crop, onChange }) {
   const c = crop && crop.w ? crop : defaultCropFor(nat.w, nat.h);
   const box = { left: c.x / nat.w * 100, top: c.y / nat.h * 100, width: c.w / nat.w * 100, height: c.h / nat.h * 100 };
   const overlay = "rgba(0,0,0,0.55)";
+  const targetAspect = 55 / 85;
+  const boxAspect = c.w / c.h;
+  let visX, visY, visW, visH;
+  if (boxAspect > targetAspect) {
+    visH = c.h;
+    visW = c.h * targetAspect;
+    visX = c.x + (c.w - visW) / 2;
+    visY = c.y;
+  } else {
+    visW = c.w;
+    visH = c.w / targetAspect;
+    visX = c.x;
+    visY = c.y + (c.h - visH) / 2;
+  }
+  const visBox = { left: visX / nat.w * 100, top: visY / nat.h * 100, width: visW / nat.w * 100, height: visH / nat.h * 100 };
+  const showVisGuide = Math.abs(visBox.width - box.width) > 0.5 || Math.abs(visBox.height - box.height) > 0.5;
   const handleDefs = [
     { id: "tl", style: { top: -6, left: -6, width: 12, height: 12 }, cursor: "nwse-resize" },
     { id: "tr", style: { top: -6, right: -6, width: 12, height: 12 }, cursor: "nesw-resize" },
@@ -650,6 +666,20 @@ function ImageCropper({ src, crop, onChange }) {
         onPointerDown: (e) => startDrag("pan", e, c),
         style: { position: "absolute", left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%`, border: "2px dashed rgba(255,255,255,0.9)", cursor: "grab" }
       },
+      showVisGuide && /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          style: {
+            position: "absolute",
+            left: `${(visBox.left - box.left) / box.width * 100}%`,
+            top: `${(visBox.top - box.top) / box.height * 100}%`,
+            width: `${visBox.width / box.width * 100}%`,
+            height: `${visBox.height / box.height * 100}%`,
+            border: `2px solid ${theme.accent}`,
+            pointerEvents: "none"
+          }
+        }
+      ),
       handleDefs.map((h) => /* @__PURE__ */ React.createElement(
         "div",
         {
@@ -659,7 +689,7 @@ function ImageCropper({ src, crop, onChange }) {
         }
       ))
     )
-  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a handle to resize that side"));
+  ), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-center mt-1.5", style: { color: theme.muted } }, "Drag the box to move it \xB7 drag a handle to resize that side", showVisGuide && /* @__PURE__ */ React.createElement(React.Fragment, null, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: theme.accent } }, "gold outline"), " is what actually shows on the card")));
 }
 function TagMultiSelect({ label, values, options, onChange, placeholder }) {
   const [query, setQuery] = useState("");
