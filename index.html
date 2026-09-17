@@ -1911,9 +1911,11 @@ function PhotocardTracker({ isOwner = true } = {}) {
         const data = JSON.parse(ev.target.result);
         if (!Array.isArray(data)) throw new Error("bad format");
         setCards(data);
-        await persist(data);
-        setToast(`Imported ${data.length} photocards.`);
-        setTimeout(() => setToast(""), 3e3);
+        const ok = await persist(data);
+        if (ok) {
+          setToast(`Imported ${data.length} photocards.`);
+          setTimeout(() => setToast(""), 3e3);
+        }
       } catch (err) {
         setToast("Import failed \u2014 file is not a valid backup.");
         setTimeout(() => setToast(""), 3e3);
