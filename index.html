@@ -494,7 +494,7 @@ function mostCommon(arr) {
   return best;
 }
 function isOwned(card) {
-  return card.status === "Owned";
+  return card.status === "Owned" || card.status === "Purchased";
 }
 function cardBadge(card) {
   if (!card.status || card.status === "Unowned") return null;
