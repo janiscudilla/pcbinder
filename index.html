@@ -2180,7 +2180,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
         style: { background: theme.surface, border: `1px solid ${theme.border}` }
       },
       /* @__PURE__ */ React.createElement("button", { onClick: () => setSelectedCard(null), className: "absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center", style: { background: "rgba(0,0,0,0.5)" } }, /* @__PURE__ */ React.createElement(X, { size: 16, color: "#fff" })),
-      /* @__PURE__ */ React.createElement("div", { className: "shrink-0 px-4 pt-4 md:p-0 md:w-72 lg:w-80" }, /* @__PURE__ */ React.createElement("div", { style: { aspectRatio: "55 / 85", maxHeight: "55vh", margin: "0 auto 12px", background: theme.surfaceAlt, position: "relative", borderRadius: 16 }, className: "overflow-hidden flex items-center justify-center md:m-0 md:h-full md:max-h-none md:rounded-none" }, (detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage) ? /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { className: "shrink-0 p-4 md:p-5 md:w-72 lg:w-80 md:self-start" }, /* @__PURE__ */ React.createElement("div", { style: { aspectRatio: "55 / 85", maxHeight: "55vh", margin: "0 auto", background: theme.surfaceAlt, position: "relative", borderRadius: 16 }, className: "overflow-hidden flex items-center justify-center" }, (detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage) ? /* @__PURE__ */ React.createElement(
         CroppedImage,
         {
           src: resolveImageUrl(detailSide === "front" ? selectedCard.frontImage : selectedCard.backImage),
