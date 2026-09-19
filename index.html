@@ -1789,7 +1789,10 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }
   async function saveForm() {
     if (!form.member.trim() || !form.album.trim()) {
-      setToast("Member and Release are required.");
+      const missing = [];
+      if (!form.member.trim()) missing.push("Member");
+      if (!form.album.trim()) missing.push("Release");
+      setToast(`${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} required.`);
       setTimeout(() => setToast(""), 3e3);
       return;
     }
@@ -1809,7 +1812,10 @@ function PhotocardTracker({ isOwner = true } = {}) {
   }
   async function saveFormAndAddAnother() {
     if (!form.member.trim() || !form.album.trim()) {
-      setToast("Member and Release are required.");
+      const missing = [];
+      if (!form.member.trim()) missing.push("Member");
+      if (!form.album.trim()) missing.push("Release");
+      setToast(`${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} required.`);
       setTimeout(() => setToast(""), 3e3);
       return;
     }
