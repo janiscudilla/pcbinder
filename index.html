@@ -2083,7 +2083,7 @@ function PhotocardTracker({ isOwner = true } = {}) {
     });
     return order.map((key) => ({
       key,
-      label: key === "__none__" ? "No purchase date" : (/* @__PURE__ */ new Date(`${key}-01T00:00:00`)).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      label: key === "__none__" ? "No purchase date" : key.length === 4 ? `Sometime in ${key}` : (/* @__PURE__ */ new Date(`${key}-01T00:00:00`)).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
       cards: map[key].cards,
       spend: map[key].spend
     }));
