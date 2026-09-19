@@ -389,8 +389,13 @@ function resizeCropBox(handleId, start, dxPx, dyPx, natW, natH) {
 }
 function CroppedImage({ src, crop, style, onError }) {
   const [nat, setNat] = useState(null);
+  const imgRef = useRef(null);
   useEffect(() => {
     setNat(null);
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth) {
+      setNat({ w: img.naturalWidth, h: img.naturalHeight });
+    }
   }, [src]);
   function handleLoad(e) {
     setNat({ w: e.target.naturalWidth, h: e.target.naturalHeight });
@@ -424,9 +429,9 @@ function CroppedImage({ src, crop, style, onError }) {
   return /* @__PURE__ */ React.createElement(
     "img",
     {
+      ref: imgRef,
       src,
       alt: "",
-      loading: "lazy",
       onLoad: handleLoad,
       onError,
       style: { ...style, ...imgStyle }
@@ -570,13 +575,16 @@ function Field({ label, children }) {
 function ImageField({ label, value, onChange }) {
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [dropError, setDropError] = useState("");
   async function processFile(file) {
     if (!file) return;
     setBusy(true);
+    setDropError("");
     try {
       const dataUrl = await fileToCompressedDataUrl(file);
       onChange(dataUrl);
     } catch (err) {
+      setDropError("Couldn't read that photo \u2014 try again, or save it to your device first.");
     } finally {
       setBusy(false);
     }
@@ -589,7 +597,17 @@ function ImageField({ label, value, onChange }) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) processFile(file);
+    if (file && file.type.startsWith("image/")) {
+      processFile(file);
+      return;
+    }
+    const url = (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("URL") || e.dataTransfer.getData("text/plain") || "").trim();
+    if (/^https?:\/\//i.test(url)) {
+      onChange(url);
+      setDropError("");
+      return;
+    }
+    setDropError("Couldn't get an image from that \u2014 try dragging a saved photo file, or paste a link below instead.");
   }
   const isUpload = value && value.startsWith("data:");
   return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), isUpload ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 p-1.5 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("img", { src: value, alt: "", className: "w-10 h-14 object-cover rounded shrink-0" }), /* @__PURE__ */ React.createElement("span", { className: "text-xs flex-1", style: { color: theme.muted } }, "Photo uploaded"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => onChange(""), className: "text-xs px-2 py-1 rounded shrink-0", style: { color: "#D98B72" } }, "Remove")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement(
@@ -610,7 +628,7 @@ function ImageField({ label, value, onChange }) {
     /* @__PURE__ */ React.createElement(Upload, { size: 14, style: { color: dragOver ? theme.accent : theme.muted } }),
     /* @__PURE__ */ React.createElement("span", { className: "text-xs", style: { color: theme.muted } }, busy ? "Processing photo..." : "Drag a photo here, or tap to choose"),
     /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: handleFile, className: "absolute inset-0 opacity-0 cursor-pointer", title: "" })
-  ), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px", style: { background: theme.border } }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] shrink-0", style: { color: theme.muted } }, "OR PASTE A LINK"), /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px", style: { background: theme.border } })), /* @__PURE__ */ React.createElement("input", { value, onChange: (e) => onChange(e.target.value), placeholder: "Drive, Pinterest, Canva link", className: "w-full px-2.5 py-2 rounded-lg text-sm" })));
+  ), dropError && /* @__PURE__ */ React.createElement("p", { className: "text-xs", style: { color: "#D98B72" } }, dropError), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px", style: { background: theme.border } }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] shrink-0", style: { color: theme.muted } }, "OR PASTE A LINK"), /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px", style: { background: theme.border } })), /* @__PURE__ */ React.createElement("input", { value, onChange: (e) => onChange(e.target.value), placeholder: "Drive, Pinterest, Canva link", className: "w-full px-2.5 py-2 rounded-lg text-sm" })));
 }
 function SelectOrNew({ label, value, options, onChange, placeholder, compact }) {
   const [query, setQuery] = useState(value || "");
