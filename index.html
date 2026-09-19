@@ -398,17 +398,26 @@ function CroppedImage({ src, crop, style, onError }) {
   let imgStyle = { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" };
   if (nat) {
     const c = crop && crop.w ? crop : defaultCropFor(nat.w, nat.h);
-    const containerAspect = 55 / 85;
-    const cropAspect = c.w / c.h;
-    const r = cropAspect / containerAspect;
-    const cropWPct = Math.min(1, r) * 100;
-    const cropHPct = Math.min(1, 1 / r) * 100;
+    const targetAspect = 55 / 85;
+    const boxAspect = c.w / c.h;
+    let visX, visY, visW, visH;
+    if (boxAspect > targetAspect) {
+      visH = c.h;
+      visW = c.h * targetAspect;
+      visX = c.x + (c.w - visW) / 2;
+      visY = c.y;
+    } else {
+      visW = c.w;
+      visH = c.w / targetAspect;
+      visX = c.x;
+      visY = c.y + (c.h - visH) / 2;
+    }
     imgStyle = {
       position: "absolute",
-      width: `${cropWPct * (nat.w / c.w)}%`,
-      height: `${cropHPct * (nat.h / c.h)}%`,
-      left: `${(100 - cropWPct) / 2 - c.x / c.w * cropWPct}%`,
-      top: `${(100 - cropHPct) / 2 - c.y / c.h * cropHPct}%`,
+      width: `${nat.w / visW * 100}%`,
+      height: `${nat.h / visH * 100}%`,
+      left: `${-(visX / visW) * 100}%`,
+      top: `${-(visY / visH) * 100}%`,
       maxWidth: "none"
     };
   }
