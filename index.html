@@ -557,8 +557,8 @@ function Field({ label, children }) {
 }
 function ImageField({ label, value, onChange }) {
   const [busy, setBusy] = useState(false);
-  async function handleFile(e) {
-    const file = e.target.files[0];
+  const [dragOver, setDragOver] = useState(false);
+  async function processFile(file) {
     if (!file) return;
     setBusy(true);
     try {
@@ -567,11 +567,38 @@ function ImageField({ label, value, onChange }) {
     } catch (err) {
     } finally {
       setBusy(false);
-      e.target.value = "";
     }
   }
+  async function handleFile(e) {
+    await processFile(e.target.files[0]);
+    e.target.value = "";
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) processFile(file);
+  }
   const isUpload = value && value.startsWith("data:");
-  return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), isUpload ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 p-1.5 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("img", { src: value, alt: "", className: "w-10 h-14 object-cover rounded shrink-0" }), /* @__PURE__ */ React.createElement("span", { className: "text-xs flex-1", style: { color: theme.muted } }, "Photo uploaded (test only)"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => onChange(""), className: "text-xs px-2 py-1 rounded shrink-0", style: { color: "#D98B72" } }, "Remove")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement("input", { value, onChange: (e) => onChange(e.target.value), placeholder: "Paste a link (Drive, Pinterest, Canva)", className: "w-full px-2.5 py-2 rounded-lg text-sm" }), /* @__PURE__ */ React.createElement("label", { className: "inline-flex items-center gap-1.5 text-xs cursor-pointer", style: { color: theme.accent } }, /* @__PURE__ */ React.createElement(Upload, { size: 12 }), " ", busy ? "Processing photo..." : "or upload a photo", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: handleFile, className: "hidden" }))));
+  return /* @__PURE__ */ React.createElement("label", { className: "block" }, /* @__PURE__ */ React.createElement("span", { className: "block text-[11px] mb-1", style: { color: theme.muted } }, label), isUpload ? /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 p-1.5 rounded-lg", style: { background: theme.surfaceAlt, border: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("img", { src: value, alt: "", className: "w-10 h-14 object-cover rounded shrink-0" }), /* @__PURE__ */ React.createElement("span", { className: "text-xs flex-1", style: { color: theme.muted } }, "Photo uploaded (test only)"), /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => onChange(""), className: "text-xs px-2 py-1 rounded shrink-0", style: { color: "#D98B72" } }, "Remove")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-1.5" }, /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      onDragOver: (e) => {
+        e.preventDefault();
+        setDragOver(true);
+      },
+      onDragLeave: () => setDragOver(false),
+      onDrop: handleDrop,
+      className: "relative flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg text-center transition-colors",
+      style: {
+        border: `1.5px dashed ${dragOver ? theme.accent : theme.border}`,
+        background: dragOver ? theme.surfaceAlt : "transparent"
+      }
+    },
+    /* @__PURE__ */ React.createElement(Upload, { size: 14, style: { color: dragOver ? theme.accent : theme.muted } }),
+    /* @__PURE__ */ React.createElement("span", { className: "text-xs", style: { color: theme.muted } }, busy ? "Processing photo..." : "Drag a photo here, or tap to choose"),
+    /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: handleFile, className: "absolute inset-0 opacity-0 cursor-pointer", title: "" })
+  ), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px", style: { background: theme.border } }), /* @__PURE__ */ React.createElement("span", { className: "text-[10px] shrink-0", style: { color: theme.muted } }, "OR PASTE A LINK"), /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px", style: { background: theme.border } })), /* @__PURE__ */ React.createElement("input", { value, onChange: (e) => onChange(e.target.value), placeholder: "Drive, Pinterest, Canva link", className: "w-full px-2.5 py-2 rounded-lg text-sm" })));
 }
 function SelectOrNew({ label, value, options, onChange, placeholder, compact }) {
   const [query, setQuery] = useState(value || "");
